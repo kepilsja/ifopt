@@ -9,7 +9,7 @@
   layer order reversed and the incidence angle taken in the substrate.  tmmax accepts only a
   real angle in a real incident medium, so the reverse call uses Re(n_substrate); exact for
   lossless substrates (the case here).
-* tmmax's incoherent-layer path is not used: see docs/PLAN.md section 4 for why.
+* tmmax's incoherent-layer path is not used: see docs/DESIGN.md section 2 for why.
 """
 from __future__ import annotations
 
