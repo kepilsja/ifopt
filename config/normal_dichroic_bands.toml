@@ -1,0 +1,51 @@
+# Normal-incidence dichroic with bands: transmit 520-545 nm, reflect 1040-1090 nm.
+# Substrate turned "off": semi-infinite glass, back surface ignored -> no etalon fringes; T is the power
+# entering the glass.  At 0 deg s and p are identical, so the polarisation setting does not matter.
+
+[system]
+ambient = "Air"
+
+[substrate]
+material = "FusedSilica"
+mode = "semi_infinite"          # incoherent | coherent | semi_infinite | none
+
+[front]                         # 21 layers, ambient -> substrate order (H = TiO2, L = FusedSilica)
+materials = ["TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2"]
+[front.bounds_nm]
+default = [5.0, 400.0]
+
+[[targets]]
+name = "pass"
+side = "front"
+wavelength_nm = [520.0, 545.0]  # range [start, stop] ...
+points = 26                     # ... sampled at 26 wavelengths
+aoi_deg = 0.0
+polarization = "unpolarized"
+quantity = "T"
+kind = "min"                    # T >= 0.98 everywhere in the band
+value = 0.98
+weight = 1.0
+
+[[targets]]
+name = "reflect"
+side = "front"
+wavelength_nm = [1040.0, 1090.0]
+points = 26
+aoi_deg = 0.0
+polarization = "unpolarized"
+quantity = "R"
+kind = "min"                    # R >= 0.99 everywhere in the band
+value = 0.99
+weight = 1.0
+
+[objective]
+form = "power"
+power = 2
+
+[optimizer]
+n_starts = 256
+adam_steps = 600
+adam_lr = 0.05
+top_k = 8
+seed = 0
+global_de = false

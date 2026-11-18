@@ -1,0 +1,80 @@
+# Beam combiner, left port, with an optimised back-face AR coating.
+# 45-degree two-source beam combiner from system.xml; 532 nm + 1064 nm are placeholders - put your wavelengths here.
+# Geometry: source 1 hits the upper-right face = FRONT (coated) face, source 2 the lower-left face = BACK face.
+# Output ports: left = {T@1, R@2}, up = {R@1, T@2}.  Both beams lie in the drawing plane, which is the plane
+# of incidence: s-polarisation = E-field perpendicular to the drawing.
+# The design vector is the front thicknesses followed by the back thicknesses.
+
+[system]
+ambient = "Air"                 # tmmax database (n = 1.00028)
+
+[substrate]
+material = "FusedSilica"        # built-in Malitson Sellmeier (k = 0). NOTE: tmmax's "SiO2" table has
+                                # k = 0.002 at 532 nm, which would make a 1 mm plate opaque (tau ~ e^-47).
+mode = "incoherent"             # incoherent | coherent | semi_infinite | none
+thickness_mm = 1.0
+
+[front]                         # coating on the front face, ambient -> substrate order
+# H = TiO2 (tmmax database), L = FusedSilica
+materials = ["TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica",
+             "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2"]
+# thickness_nm = [...]          # optional design to evaluate; omitted -> quarter-wave seed
+[front.bounds_nm]
+default = [5.0, 400.0]
+
+[back]                          # back face (source 2 side): 4-layer coating optimised together with the front
+materials = ["FusedSilica", "TiO2", "FusedSilica", "TiO2"]   # ambient -> substrate; low index outermost
+optimize = true                 # false -> fixed layers, thickness_nm required
+[back.bounds_nm]
+default = [5.0, 300.0]
+
+# ---- target table: one row per requirement ----------------------------------------------
+[[targets]]
+name = "T1"
+beam = "1"                      # source 1 ("wavelength 1", red arrow)
+side = "front"
+wavelength_nm = 532.0
+aoi_deg = 45.0
+polarization = "s"          # s | p | unpolarized | both | azimuth in deg (0 = p, 90 = s)
+quantity = "T"
+kind = "eq"                     # eq | min | max
+value = 1.0
+weight = 1.0
+
+[[targets]]
+name = "R2"
+beam = "2"                      # source 2 ("wavelength 2", green arrow)
+side = "back"
+wavelength_nm = 1064.0
+aoi_deg = 45.0
+polarization = "s"
+quantity = "R"
+kind = "eq"
+value = 1.0
+weight = 1.0
+
+[objective]
+form = "power"                  # power (MF = (sum w |d|^p / sum w)^(1/p)) | minimax | log
+power = 2
+
+[[report.sums]]
+name = "left port"
+terms = ["T@1", "R@2"]
+
+[[report.sums]]
+name = "up port"
+terms = ["R@1", "T@2"]
+
+[optimizer]
+n_starts = 256
+adam_steps = 600
+adam_lr = 0.05
+top_k = 8
+seed = 0
+global_de = false
+
+# Custom materials (examples):
+# [[materials.custom]]
+# name = "AgLike"; type = "constant"; n = 0.05; k = 3.4      # illustrative only
+# [[materials.custom]]
+# name = "Ag"; type = "csv"; path = "../materials/Ag.csv"    # wavelength_nm,n,k (e.g. refractiveindex.info)

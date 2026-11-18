@@ -1,4 +1,4 @@
-"""Optical layout taken from ``system.xml`` (draw.io).
+"""Optical layout taken from ``system.xml`` (draw.io); used by the combiner configs and their tests.
 
 The filter plate is the thick line (364,480)-(464,580): a plate at 45 deg.  Screen y grows
 downwards.  The two sources illuminate OPPOSITE faces of the plate:
@@ -23,17 +23,17 @@ import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-COEFFICIENTS = ("R1", "T1", "A1", "R2", "T2", "A2")
-PORTS = {"left": ("T1", "R2"), "up": ("R1", "T2")}
 SOURCE_FACE = {1: "upper-right face", 2: "lower-left face"}
 OUTPUT_PORT = {"T1": "left", "R1": "up", "T2": "up", "R2": "left"}
 
 
-def parse_coefficient(name: str) -> tuple[int, str]:
-    """'T1' -> (source 1, 'T')."""
-    if name not in COEFFICIENTS:
-        raise ValueError(f"{name!r} not one of {COEFFICIENTS}")
-    return int(name[1]), name[0]
+def expected_port_terms(path: str | Path) -> dict[str, set[str]]:
+    """From the drawing: port -> report terms in target-table notation, e.g. 'left' -> {'T@1', 'R@2'}
+    (beam labels '1' and '2' = source numbers)."""
+    out: dict[str, set[str]] = {}
+    for coef, port in verify_against_drawio(path).items():
+        out.setdefault(port, set()).add(f"{coef[0]}@{coef[1]}")
+    return out
 
 
 def verify_against_drawio(path: str | Path) -> dict[str, str]:
