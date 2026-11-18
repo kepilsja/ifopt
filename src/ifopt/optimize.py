@@ -21,15 +21,16 @@ import optax
 from scipy.optimize import differential_evolution, minimize
 
 from .config import Config
-from .objectives import make_merit, quarter_wave_seed
-from .plate import PlateModel
+from .objectives import figure_of_merit, make_merit, quarter_wave_seed, row_summary
+from .plate import Model
 
 
 @dataclass
 class OptResult:
     d: np.ndarray
     merit: float
-    selected: dict
+    mf: float
+    rows: list
     history: dict = field(default_factory=dict)
     candidates: list = field(default_factory=list)
     timings: dict = field(default_factory=dict)
@@ -55,8 +56,8 @@ def initial_designs(cfg: Config, n_starts: int, rng: np.random.Generator) -> np.
 
 def optimize(cfg: Config, log=print) -> OptResult:
     oc = cfg.optimizer
-    model = PlateModel(cfg)
-    merit, selected = make_merit(cfg, model)
+    model = Model(cfg)
+    merit, _ = make_merit(model)
     lo, hi = map(lambda a: jnp.asarray(a, float), cfg.design_bounds())
     span = hi - lo
     rng = np.random.default_rng(oc.seed)
@@ -126,12 +127,6 @@ def optimize(cfg: Config, log=print) -> OptResult:
     log(f"[B] L-BFGS-B polish of {len(candidates)} candidates in {timings['lbfgsb_s']:.1f} s; "
         f"best merit {best_val:.3e} ({nit} iterations)")
 
-    P, _ = selected(jnp.asarray(best_d))
-    names = cfg.objective.maximize
-    if cfg.objective.both_polarizations:
-        sel = {f"{n}_s": float(v) for n, v in zip(names, np.asarray(P)[: len(names)])}
-        sel |= {f"{n}_p": float(v) for n, v in zip(names, np.asarray(P)[len(names):])}
-    else:
-        sel = {n: float(v) for n, v in zip(names, np.asarray(P))}
-    return OptResult(d=np.asarray(best_d), merit=best_val, selected=sel, history=history,
+    return OptResult(d=np.asarray(best_d), merit=best_val, mf=figure_of_merit(best_val, cfg.objective),
+                     rows=row_summary(model, jnp.asarray(best_d)), history=history,
                      candidates=[(v, x.tolist()) for v, x, _ in polished], timings=timings)
