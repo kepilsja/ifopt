@@ -110,6 +110,14 @@ def load_csv(path: Path, name: str | None = None) -> TabulatedMaterial:
     return TabulatedMaterial.from_arrays(name or path.stem, f"csv:{path}", data[:, 0], data[:, 1], data[:, 2])
 
 
+def same_material(a: Material, b: Material) -> bool:
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, TabulatedMaterial):
+        return all(np.array_equal(getattr(a, f), getattr(b, f)) for f in ("wl_nm", "n_tab", "k_tab"))
+    return a == b
+
+
 class MaterialLibrary:
     def __init__(self, custom: dict[str, Material] | None = None, materials_dir: Path | None = None):
         self.custom = dict(custom or {})
@@ -131,9 +139,57 @@ class MaterialLibrary:
                                                  B=tuple(e["B"]), C=tuple(e["C"]))
             elif typ == "csv":
                 custom[name] = load_csv((base_dir / e["path"]).resolve(), name)
+            elif typ == "table":
+                custom[name] = TabulatedMaterial.from_arrays(name, "table", e["wavelength_nm"], e["n"], e.get("k", [0.0] * len(e["n"])))
             else:
                 raise ValueError(f"unknown material type {typ!r} for {name}")
         return cls(custom, materials_dir)
+
+    # ---- registering materials from code ----------------------------------------------------
+    def add(self, material: Material) -> Material:
+        """Register a material under its name.  Re-adding an identical material is a no-op; a
+        different material under an already registered custom name is an error."""
+        old = self.custom.get(material.name)
+        if old is not None and not same_material(old, material):
+            raise ValueError(f"a different material named {material.name!r} is already registered")
+        self.custom[material.name] = material
+        self._cache.pop(material.name, None)
+        return material
+
+    def add_constant(self, name: str, n: float, k: float = 0.0) -> Material:
+        return self.add(ConstantMaterial(name=name, source="constant", n=float(n), k=float(k)))
+
+    def add_sellmeier(self, name: str, B, C, wl_min_nm: float = 0.0, wl_max_nm: float = float("inf")) -> Material:
+        """n^2 = 1 + sum B_i lambda^2 / (lambda^2 - C_i) with lambda in um and C in um^2."""
+        return self.add(SellmeierMaterial(name=name, source="Sellmeier", wl_min_nm=float(wl_min_nm),
+                                          wl_max_nm=float(wl_max_nm), B=tuple(map(float, B)), C=tuple(map(float, C))))
+
+    def add_table(self, name: str, wavelength_nm, n, k=None) -> Material:
+        k = np.zeros(len(n)) if k is None else k
+        return self.add(TabulatedMaterial.from_arrays(name, "table", wavelength_nm, n, k))
+
+    def add_csv(self, path, name: str | None = None) -> Material:
+        return self.add(load_csv(Path(path).resolve(), name))
+
+    def to_entries(self, base_dir: Path | None = None) -> list[dict]:
+        """Custom materials as ``[[materials.custom]]`` entries (CSV references kept, tables inline)."""
+        out = []
+        for name, m in self.custom.items():
+            if isinstance(m, ConstantMaterial):
+                out.append({"name": name, "type": "constant", "n": m.n, "k": m.k})
+            elif isinstance(m, SellmeierMaterial):
+                out.append({"name": name, "type": "sellmeier", "B": list(m.B), "C": list(m.C),
+                            "wl_min_nm": m.wl_min_nm, "wl_max_nm": m.wl_max_nm})
+            elif isinstance(m, TabulatedMaterial) and m.source.startswith("csv:"):
+                path = Path(m.source.removeprefix("csv:"))
+                ref = os.path.relpath(path, base_dir) if base_dir is not None else str(path)
+                out.append({"name": name, "type": "csv", "path": ref})
+            elif isinstance(m, TabulatedMaterial):
+                out.append({"name": name, "type": "table", "wavelength_nm": m.wl_nm.tolist(),
+                            "n": m.n_tab.tolist(), "k": m.k_tab.tolist()})
+            else:
+                raise TypeError(f"cannot serialise material {name!r} of type {type(m).__name__}")
+        return out
 
     def get(self, name: str) -> Material:
         if name in self._cache:
