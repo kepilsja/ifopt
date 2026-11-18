@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ifopt"
-version = "0.1.0"
-description = "Two-wavelength 45-degree dichroic plate: R/T calculation and thickness optimization (JAX + tmmax)"
+version = "0.2.0"
+description = "Interference filter design: target tables, stable S-matrix engine (JAX), thickness optimisation; scriptable API and CLI"
 requires-python = ">=3.14"
 dependencies = [
     "jax>=0.7.1",            # first release with CPython 3.14 wheels
@@ -22,8 +22,14 @@ dependencies = [
 [project.optional-dependencies]
 test = ["pytest>=8"]
 
+[project.scripts]
+ifopt = "ifopt.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+ifopt = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
