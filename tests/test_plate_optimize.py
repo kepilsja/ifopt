@@ -8,7 +8,7 @@ from jax.test_util import check_grads
 
 from ifopt.engines import ReferenceEngine, TmmaxEngine
 from ifopt.objectives import make_merit, quarter_wave_seed, row_summary
-from ifopt.optimize import optimize
+from ifopt.optimizer import run_optimization as optimize
 from ifopt.plate import Model, evaluate_with_engine, plate_point, plate_point_coherent
 
 
@@ -64,7 +64,7 @@ def test_merit_gradient_matches_finite_differences(name, request):
 def test_combiner_regression(cfg):
     """Migrated combiner config reproduces the original result: T1 at the bare back-face ceiling."""
     model = Model(cfg)
-    res = optimize(short(cfg), log=lambda *_: None)
+    res = optimize(short(cfg))
     rows = {r["name"]: r for r in res.rows}
     ceiling = model.back_face_ceiling(res.d)[cfg.table.beams["1"].points[0], 0]
     assert rows["T1"]["achieved_min"] == pytest.approx(0.917358, abs=2e-3)
@@ -76,7 +76,7 @@ def test_combiner_regression(cfg):
 
 def test_back_ar_lifts_the_ceiling(cfg_ar):
     assert cfg_ar.back_optimized and len(cfg_ar.design_materials()) == 15 + 4
-    res = optimize(short(cfg_ar, starts=32, steps=300, top_k=3), log=lambda *_: None)
+    res = optimize(short(cfg_ar, starts=32, steps=300, top_k=3))
     rows = {r["name"]: r for r in res.rows}
     assert rows["T1"]["achieved_min"] > 0.995 and rows["R2"]["achieved_min"] > 0.999
 

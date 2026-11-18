@@ -11,7 +11,7 @@ from ifopt.config import load_config
 from ifopt.engines import ReferenceEngine, TmmaxEngine
 from ifopt.engines.stable_engine import stack_powers
 from ifopt.objectives import quarter_wave_seed
-from ifopt.optimize import optimize
+from ifopt.optimizer import run_optimization as optimize
 from ifopt.plate import Model, evaluate_with_engine, physical_phase, plate_point_coherent
 
 CFG = """
@@ -131,7 +131,7 @@ def test_single_source_normal_incidence_mirror(tmp_path):
     assert cfg.table.n_points == 1 and not cfg.has_back_face
     seed = quarter_wave_seed(cfg)
     assert float(Model(cfg).target_values(seed)[0]) > 0.999          # the QW stack already meets it
-    res = optimize(cfg, log=lambda *_: None)
+    res = optimize(cfg)
     assert res.rows[0]["achieved_min"] >= 0.999 and res.merit == pytest.approx(0.0, abs=1e-14)
 
 
@@ -141,5 +141,5 @@ def test_bands_example_short_run(root):
     from ifopt.objectives import make_merit
     merit, _ = make_merit(Model(cfg))
     m0 = float(merit(jnp.asarray(quarter_wave_seed(cfg))))
-    res = optimize(replace(cfg, optimizer=replace(cfg.optimizer, n_starts=16, adam_steps=200, top_k=2)), log=lambda *_: None)
+    res = optimize(replace(cfg, optimizer=replace(cfg.optimizer, n_starts=16, adam_steps=200, top_k=2)))
     assert res.merit < 0.1 * m0
