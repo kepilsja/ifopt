@@ -11,6 +11,7 @@ Pipeline
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 
@@ -23,6 +24,8 @@ from scipy.optimize import differential_evolution, minimize
 from .config import Config
 from .objectives import figure_of_merit, make_merit, quarter_wave_seed, row_summary
 from .plate import Model
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -41,12 +44,14 @@ def _logit(x):
     return np.log(x / (1 - x))
 
 
-def initial_designs(cfg: Config, n_starts: int, rng: np.random.Generator) -> np.ndarray:
+def initial_designs(cfg: Config, n_starts: int, rng: np.random.Generator, extra=()) -> np.ndarray:
+    """Quarter-wave seed, configured / user-supplied starts, 25% jittered seeds, uniform random rest."""
     lo, hi = map(np.asarray, cfg.design_bounds())
     L = lo.size
     seeds = [quarter_wave_seed(cfg)]
     if (x_cfg := cfg.configured_design()) is not None:
         seeds.append(np.clip(x_cfg, lo, hi))
+    seeds += [np.clip(np.asarray(x, float), lo, hi) for x in extra]
     n_jitter = max(0, n_starts // 4)
     jitter = [np.clip(seeds[0] * rng.normal(1.0, 0.15, L), lo, hi) for _ in range(n_jitter)]
     n_rand = max(0, n_starts - len(seeds) - n_jitter)
@@ -54,7 +59,9 @@ def initial_designs(cfg: Config, n_starts: int, rng: np.random.Generator) -> np.
     return np.asarray(seeds + jitter + rand)
 
 
-def optimize(cfg: Config, log=print) -> OptResult:
+def run_optimization(cfg: Config, extra_starts=()) -> OptResult:
+    """Optimise the design vector of ``cfg``; ``extra_starts`` are additional starting vectors.
+    Progress is reported through the ``ifopt.optimizer`` logger."""
     oc = cfg.optimizer
     model = Model(cfg)
     merit, _ = make_merit(model)
@@ -70,7 +77,7 @@ def optimize(cfg: Config, log=print) -> OptResult:
         return merit(d_of_u(u))
 
     # ---- stage A: vmapped multi-start Adam -------------------------------------------------
-    D0 = initial_designs(cfg, oc.n_starts, rng)
+    D0 = initial_designs(cfg, oc.n_starts, rng, extra_starts)
     U0 = jnp.asarray(_logit((D0 - np.asarray(lo)) / np.asarray(span)))
     opt = optax.adam(oc.adam_lr)
 
@@ -92,7 +99,7 @@ def optimize(cfg: Config, log=print) -> OptResult:
     timings["adam_s"] = time.perf_counter() - t0
     history["adam_best_curve"] = np.asarray(hist[np.nanargmin(finals)])
     history["adam_final_merits"] = finals
-    log(f"[A] Adam: {len(D0)} starts x {oc.adam_steps} steps in {timings['adam_s']:.1f} s; "
+    logger.info(f"[A] Adam: {len(D0)} starts x {oc.adam_steps} steps in {timings['adam_s']:.1f} s; "
         f"best merit {np.nanmin(finals):.3e}, median {np.nanmedian(finals):.3e}")
 
     candidates = [np.asarray(d_of_u(U[i])) for i in np.argsort(finals)[: oc.top_k]]
@@ -105,7 +112,7 @@ def optimize(cfg: Config, log=print) -> OptResult:
                                     vectorized=True, polish=False, maxiter=oc.de_maxiter, popsize=oc.de_popsize,
                                     seed=oc.seed, tol=1e-10)
         timings["de_s"] = time.perf_counter() - t0
-        log(f"[DE] differential evolution: merit {de.fun:.3e} after {de.nit} generations ({timings['de_s']:.1f} s)")
+        logger.info(f"[DE] differential evolution: merit {de.fun:.3e} after {de.nit} generations ({timings['de_s']:.1f} s)")
         candidates.insert(0, de.x)
 
     # ---- stage B: L-BFGS-B polish ----------------------------------------------------------
@@ -121,10 +128,13 @@ def optimize(cfg: Config, log=print) -> OptResult:
         r = minimize(fun, d0, jac=True, method="L-BFGS-B", bounds=list(zip(np.asarray(lo), np.asarray(hi))),
                      options={"maxiter": 2000, "ftol": 1e-15, "gtol": 1e-12})
         polished.append((float(r.fun), r.x, int(r.nit)))
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("[B] candidate: merit %.4e -> %.4e in %d iterations (%s)", float(merit(jnp.asarray(d0))),
+                         float(r.fun), int(r.nit), r.message)
     timings["lbfgsb_s"] = time.perf_counter() - t0
     polished.sort(key=lambda t: t[0])
     best_val, best_d, nit = polished[0]
-    log(f"[B] L-BFGS-B polish of {len(candidates)} candidates in {timings['lbfgsb_s']:.1f} s; "
+    logger.info(f"[B] L-BFGS-B polish of {len(candidates)} candidates in {timings['lbfgsb_s']:.1f} s; "
         f"best merit {best_val:.3e} ({nit} iterations)")
 
     return OptResult(d=np.asarray(best_d), merit=best_val, mf=figure_of_merit(best_val, cfg.objective),
