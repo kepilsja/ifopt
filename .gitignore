@@ -11,3 +11,6 @@ __pycache__/
 # timestamped optimisation runs (scripts/optimize_filter.py default output);
 # the named example runs under results/ are tracked as reference outputs
 results/2*/
+
+# outputs of the example scripts
+results/examples/
