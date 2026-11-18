@@ -18,7 +18,13 @@ def root():
 @pytest.fixture(scope="session")
 def cfg():
     from ifopt.config import load_config
-    return load_config(ROOT / "config" / "example.toml")
+    return load_config(ROOT / "config" / "combiner_45.toml")
+
+
+@pytest.fixture(scope="session")
+def cfg_ar():
+    from ifopt.config import load_config
+    return load_config(ROOT / "config" / "combiner_45_back_ar.toml")
 
 
 @pytest.fixture(scope="session")

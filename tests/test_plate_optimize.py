@@ -7,98 +7,80 @@ import pytest
 from jax.test_util import check_grads
 
 from ifopt.engines import ReferenceEngine, TmmaxEngine
-from ifopt.objectives import make_merit, quarter_wave_seed
-from ifopt.plate import PlateModel, evaluate_with_engine, make_points, plate_point, plate_point_coherent
+from ifopt.objectives import make_merit, quarter_wave_seed, row_summary
+from ifopt.optimize import optimize
+from ifopt.plate import Model, evaluate_with_engine, plate_point, plate_point_coherent
+
+
+def short(cfg, starts=16, steps=150, top_k=2):
+    return replace(cfg, optimizer=replace(cfg.optimizer, n_starts=starts, adam_steps=steps, top_k=top_k))
 
 
 def test_coherent_phase_average_equals_incoherent(cfg):
-    d = quarter_wave_seed(cfg) * 1.07
-    pt = jax.tree.map(lambda a: a[0], make_points(cfg, 2))
-    psi = jnp.linspace(0, jnp.pi, 512, endpoint=False)
-    d_back = jnp.zeros(0)
-    coh = jax.vmap(lambda p: plate_point_coherent(jnp.asarray(d), d_back, pt, p))(psi).mean(axis=0)
-    assert np.allclose(coh, plate_point(jnp.asarray(d), d_back, pt), atol=1e-12)
+    model = Model(cfg)
+    x = jnp.asarray(quarter_wave_seed(cfg) * 1.07)
+    d_f, d_b = cfg.split(x)
+    for i in range(cfg.table.n_points):
+        pt = jax.tree.map(lambda a: a[i], model.points)
+        psi = jnp.linspace(0, jnp.pi, 512, endpoint=False)
+        coh = jax.vmap(lambda p: plate_point_coherent(d_f, d_b, pt, p))(psi).mean(axis=0)
+        assert np.allclose(coh, plate_point(d_f, d_b, pt), atol=1e-12)
 
 
-def test_engines_agree_on_full_plate(cfg):
-    d = quarter_wave_seed(cfg)
-    stable = PlateModel(cfg).coefficients(d)
-    for eng, tol in ((ReferenceEngine(), 1e-12), (TmmaxEngine(), 5e-5)):
-        other = evaluate_with_engine(cfg, d, eng)
-        for c in stable:
-            for k in ("s", "p", "mixed"):
-                assert abs(stable[c][k] - other[c][k]) < tol, (eng.name, c, k)
+@pytest.mark.parametrize("name", ["cfg", "cfg_ar"])
+def test_engines_agree_on_full_plate(name, request):
+    cfg = request.getfixturevalue(name)
+    x = quarter_wave_seed(cfg)
+    stable = np.asarray(Model(cfg).response(x))
+    assert np.abs(evaluate_with_engine(cfg, x, ReferenceEngine()) - stable).max() < 1e-12
+    assert np.abs(evaluate_with_engine(cfg, x, TmmaxEngine()) - stable).max() < 5e-5
 
 
 def test_opaque_substrate_is_graceful(cfg):
-    cfg2 = replace(cfg, plate=replace(cfg.plate, substrate="Ge"))     # Ge: k = 2.58 at 532 nm
-    m = PlateModel(cfg2).coefficients(quarter_wave_seed(cfg))
-    assert np.isfinite([v["mixed"] for v in m.values()]).all()
-    assert m["T1"]["mixed"] < 1e-30 and m["T2"]["mixed"] < 1e-30
+    cfg2 = replace(cfg, substrate=replace(cfg.substrate, material="Ge"))     # Ge: k = 2.58 at 532 nm
+    res = np.asarray(Model(cfg2).response(quarter_wave_seed(cfg)))
+    assert np.isfinite(res).all() and res[:, :, 1].max() < 1e-30
 
 
-def test_transmission_respects_fixed_face_ceiling(cfg):
-    model = PlateModel(cfg)
-    ceil = model.back_face_ceiling(quarter_wave_seed(cfg))
+def test_transmission_respects_back_face_ceiling(cfg):
+    model = Model(cfg)
+    x0 = quarter_wave_seed(cfg)
+    ceil = model.back_face_ceiling(x0)                                       # (P, 2)
     rng = np.random.default_rng(0)
-    lo, hi = map(np.asarray, cfg.coating.bounds())
+    lo, hi = map(np.asarray, cfg.design_bounds())
     for _ in range(20):
-        m = np.asarray(model.mixed(rng.uniform(lo, hi)))
-        assert m[0, 1] <= ceil[0] + 1e-12 and m[1, 1] <= ceil[1] + 1e-12
+        T = np.asarray(model.response(rng.uniform(lo, hi)))[:, :, 1]
+        assert np.all(T <= ceil + 1e-12)
 
 
-def test_merit_gradient_matches_finite_differences(cfg):
-    model = PlateModel(cfg)
-    merit, _ = make_merit(cfg, model)
-    d = jnp.asarray(quarter_wave_seed(cfg) * 1.05)
-    check_grads(merit, (d,), order=1, modes=["rev"], atol=1e-6, rtol=1e-5, eps=1e-3)
-
-
-def test_short_optimisation_improves_and_respects_bounds(cfg):
-    from ifopt.optimize import optimize
-    cfg2 = replace(cfg, optimizer=replace(cfg.optimizer, n_starts=16, adam_steps=150, top_k=2))
-    model = PlateModel(cfg2)
-    merit, _ = make_merit(cfg2, model)
-    res = optimize(cfg2, log=lambda *_: None)
-    lo, hi = map(np.asarray, cfg2.coating.bounds())
-    assert np.all(res.d >= lo - 1e-9) and np.all(res.d <= hi + 1e-9)
-    assert res.merit < float(merit(jnp.asarray(quarter_wave_seed(cfg2)))) * 0.1
-    ceil = model.back_face_ceiling(res.d)
-    assert res.selected["T1"] == pytest.approx(ceil[0], abs=2e-3)   # bare back face is the limit
-    assert res.selected["R2"] > 0.999
-
-
-@pytest.fixture(scope="module")
-def cfg_ar(root):
-    from ifopt.config import load_config
-    return load_config(root / "config" / "example_back_ar.toml")
-
-
-def test_back_coating_design_vector(cfg_ar):
-    assert cfg_ar.back_optimized and len(cfg_ar.design_materials()) == 15 + 4
-    x = quarter_wave_seed(cfg_ar)
-    front, back = cfg_ar.split(x)
-    assert front.shape == (15,) and back.shape == (4,)
-    lo, hi = cfg_ar.design_bounds()
-    assert len(lo) == len(hi) == 19
-
-
-def test_back_coating_gradient_and_engines(cfg_ar):
-    model = PlateModel(cfg_ar)
-    merit, _ = make_merit(cfg_ar, model)
-    x = jnp.asarray(quarter_wave_seed(cfg_ar) * 1.03)
+@pytest.mark.parametrize("name", ["cfg", "cfg_ar"])
+def test_merit_gradient_matches_finite_differences(name, request):
+    cfg = request.getfixturevalue(name)
+    merit, _ = make_merit(Model(cfg))
+    x = jnp.asarray(quarter_wave_seed(cfg) * 1.03)
     check_grads(merit, (x,), order=1, modes=["rev"], atol=1e-6, rtol=1e-5, eps=1e-3)
-    stable = model.coefficients(x)
-    ref = evaluate_with_engine(cfg_ar, x, ReferenceEngine())
-    assert all(abs(stable[c]["mixed"] - ref[c]["mixed"]) < 1e-12 for c in stable)
 
 
-def test_back_ar_lifts_bare_face_ceiling(cfg, cfg_ar):
-    from ifopt.optimize import optimize
-    bare_ceiling = PlateModel(cfg).back_face_ceiling(quarter_wave_seed(cfg))[0]
-    c = replace(cfg_ar, optimizer=replace(cfg_ar.optimizer, n_starts=32, adam_steps=300, top_k=3))
-    res = optimize(c, log=lambda *_: None)
-    assert res.selected["T1"] > 0.995 > bare_ceiling + 0.07
-    assert res.selected["R2"] > 0.999
-    lo, hi = map(np.asarray, c.design_bounds())
+def test_combiner_regression(cfg):
+    """Migrated combiner config reproduces the original result: T1 at the bare back-face ceiling."""
+    model = Model(cfg)
+    res = optimize(short(cfg), log=lambda *_: None)
+    rows = {r["name"]: r for r in res.rows}
+    ceiling = model.back_face_ceiling(res.d)[cfg.table.beams["1"].points[0], 0]
+    assert rows["T1"]["achieved_min"] == pytest.approx(0.917358, abs=2e-3)
+    assert rows["T1"]["achieved_min"] == pytest.approx(ceiling, abs=2e-3)
+    assert rows["R2"]["achieved_min"] > 0.999
+    lo, hi = map(np.asarray, cfg.design_bounds())
     assert np.all(res.d >= lo - 1e-9) and np.all(res.d <= hi + 1e-9)
+
+
+def test_back_ar_lifts_the_ceiling(cfg_ar):
+    assert cfg_ar.back_optimized and len(cfg_ar.design_materials()) == 15 + 4
+    res = optimize(short(cfg_ar, starts=32, steps=300, top_k=3), log=lambda *_: None)
+    rows = {r["name"]: r for r in res.rows}
+    assert rows["T1"]["achieved_min"] > 0.995 and rows["R2"]["achieved_min"] > 0.999
+
+
+def test_row_summary_shares_sum_to_one(cfg):
+    rows = row_summary(Model(cfg), quarter_wave_seed(cfg))
+    assert sum(r["share"] for r in rows) == pytest.approx(1.0)

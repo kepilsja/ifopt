@@ -1,13 +1,24 @@
 import numpy as np
 import pytest
 
-from ifopt.geometry import OUTPUT_PORT, PORTS, verify_against_drawio
+from ifopt.geometry import OUTPUT_PORT, expected_port_terms, verify_against_drawio
 from ifopt.materials import MaterialLibrary, MaterialRangeError
 
 
 def test_system_xml_matches_hardcoded_mapping(root):
     assert verify_against_drawio(root / "system.xml") == OUTPUT_PORT
-    assert set(PORTS["left"]) == {k for k, v in OUTPUT_PORT.items() if v == "left"}
+
+
+@pytest.mark.parametrize("name", ["combiner_45", "combiner_45_up_port", "combiner_45_back_ar", "combiner_45_back_ar_sp"])
+def test_combiner_configs_follow_system_xml(root, name):
+    from ifopt.config import load_config
+    cfg = load_config(root / "config" / f"{name}.toml")
+    beams = cfg.table.beams
+    assert beams["1"].side == "front" and beams["2"].side == "back"     # source 1 faces the coated face
+    assert all(b.aois_deg == (45.0,) for b in beams.values())
+    expected = expected_port_terms(root / "system.xml")
+    sums = {s.name.split()[0]: set(s.terms) for s in cfg.report_sums}
+    assert sums == expected
 
 
 def test_sellmeier_fused_silica(lib):
