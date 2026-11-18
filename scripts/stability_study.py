@@ -1,6 +1,6 @@
 """Numerical-stability study of tmmax vs the S-matrix engine for highly lossy layers.
 
-    python scripts/stability_study.py [--config config/example.toml] [--out results/stability]
+    python scripts/stability_study.py [--config config/combiner_45.toml | --wavelengths 532 1064] [--out results/stability]
 
 Sections (written to <out>/stability_report.md and <out>/stability.png):
   1. single absorbing layer, thickness sweep: R, T and dR/dd from
@@ -186,7 +186,9 @@ def db_audit(wavelengths):
 # ---------------------------------------------------------------------------- report -----
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default=str(ROOT / "config/example.toml"))
+    ap.add_argument("--config", default=str(ROOT / "config/combiner_45.toml"),
+                    help="database audit at the centre wavelengths of this config's beams")
+    ap.add_argument("--wavelengths", nargs="+", type=float, help="database audit wavelengths (nm), overrides --config")
     ap.add_argument("--out", default=str(ROOT / "results/stability"))
     args = ap.parse_args(argv)
     out = Path(args.out)
@@ -238,12 +240,13 @@ def main(argv=None):
     for k, v in compat_checks().items():
         L.append(f"- {k}: {v}")
     L.append("")
-    lams = [cfg.sources[1].wavelength_nm, cfg.sources[2].wavelength_nm]
-    L.append(f"## tmmax nk database at {lams[0]:g} / {lams[1]:g} nm")
+    lams = args.wavelengths or sorted({round(0.5 * (min(b.wavelengths_nm) + max(b.wavelengths_nm)), 3)
+                                       for b in cfg.table.beams.values()})
+    L.append(f"## tmmax nk database at {' / '.join(f'{v:g}' for v in lams)} nm")
     L.append("Out of range = tmmax would silently clamp to the table end. k > 1e-3 flagged for dielectrics.")
     L.append("")
-    L.append("| material | table range (nm) | N at λ1 | N at λ2 | flag |")
-    L.append("|---|---|---|---|---|")
+    L.append("| material | table range (nm) | " + " | ".join(f"N at {v:g} nm" for v in lams) + " | flag |")
+    L.append("|---|---|" + "---|" * len(lams) + "---|")
     for name, rng, vals, neg_k in db_audit(lams):
         flag = ["**negative k in table (gain)**"] if neg_k else []
         if any(v is None for v in vals):
@@ -251,7 +254,7 @@ def main(argv=None):
         if any(v is not None and 1e-3 < v.imag < 0.1 for v in vals):
             flag.append("k > 1e-3")
         f = lambda v: "out of range" if v is None else f"{v.real:.4f}+{v.imag:.2e}i"
-        L.append(f"| {name} | {rng[0]:.0f}-{rng[1]:.0f} | {f(vals[0])} | {f(vals[1])} | {', '.join(flag)} |")
+        L.append(f"| {name} | {rng[0]:.0f}-{rng[1]:.0f} | " + " | ".join(f(v) for v in vals) + f" | {', '.join(flag)} |")
     (out / "stability_report.md").write_text("\n".join(L) + "\n")
 
     import matplotlib
