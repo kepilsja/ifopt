@@ -58,7 +58,7 @@ Engines: **tmmax** (T-matrix, complex64), **T-matrix c128** (same algorithm, com
 ## tmmax nk database at 532 / 1064 nm
 Out of range = tmmax would silently clamp to the table end. k > 1e-3 flagged for dielectrics.
 
-| material | table range (nm) | N at λ1 | N at λ2 | flag |
+| material | table range (nm) | N at 532 nm | N at 1064 nm | flag |
 |---|---|---|---|---|
 | ALON | 240-5600 | 1.7885+5.26e-07i | 1.7480+6.59e-07i |  |
 | Air | 200-10000 | 1.0003+0.00e+00i | 1.0003+0.00e+00i |  |

@@ -1,0 +1,33 @@
+Config: config/combiner_45.toml
+Design: optimised, merit 3.415e-03
+Ambient Air; substrate: FusedSilica 1 mm, incoherent
+Front layers (ambient -> substrate): TiO2 114.37, FusedSilica 266.83, TiO2 108.83, FusedSilica 238.42, TiO2 104.31, FusedSilica 207.54, TiO2 101.98, FusedSilica 205.03, TiO2 115.03, FusedSilica 207.86, TiO2 122.29, FusedSilica 217.83, TiO2 117.74, FusedSilica 252.60, TiO2 124.46 nm
+Back face: bare
+
+Beam 1: 532 nm, AOI 45 deg, front side, polarization 's'
+               s          p       beam     |d tmmax| |d reference|   coherent min      max
+  R     0.082642   0.020510   0.082642      1.09e-07      5.69e-16       0.082642 0.082642
+  T     0.917358   0.979490   0.917358      1.17e-06      5.00e-15       0.917358 0.917358
+  A     0.000000   0.000000   0.000000      1.14e-06      5.22e-15       0.000000 0.000000
+  back-face ceiling (any passive front coating): T <= 0.917358
+
+Beam 2: 1064 nm, AOI 45 deg, back side, polarization 's'
+               s          p       beam     |d tmmax| |d reference|   coherent min      max
+  R     0.999629   0.991092   0.999629      2.28e-07      5.55e-16       0.999336 0.999793
+  T     0.000371   0.008908   0.000371      2.92e-08      4.51e-17       0.000207 0.000664
+  A     0.000000   0.000000   0.000000      1.99e-07      6.00e-16       0.000000 0.000000
+  back-face ceiling (any passive front coating): T <= 0.919968
+
+target       beam     requirement           achieved (min..max)  worst |d|   share
+T1           1        T = 1                            0.917358   8.26e-02  100.0%
+R2           2        R = 1                            0.999629   3.71e-04    0.0%
+Merit (power, p = 2): 3.4149e-03   MF = 5.8437e-02
+left port = T@1 + R@2 = 1.916987
+up port = R@1 + T@2 = 0.083013
+Stability: max sum Im(delta) over points = 0 (T-matrix overflow at ~88.72 in complex64 / ~709.78 in complex128; the S-matrix engine has no limit)
+Coherent min/max: substrate as an etalon (single-frequency laser, parallel plate); its phase average equals the incoherent value.
+
+Thickness Monte Carlo (1% rel. sigma per layer, 2000 samples):
+  MF: nominal 5.8437e-02, median 6.0434e-02, 95th pct 6.8344e-02
+  T1: worst |d| median 8.55e-02, 95th pct 9.67e-02
+  R2: worst |d| median 3.72e-04, 95th pct 3.88e-04

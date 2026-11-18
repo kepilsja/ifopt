@@ -1,0 +1,33 @@
+Config: config/combiner_45_back_ar.toml
+Design: optimised, merit 3.634e-08
+Ambient Air; substrate: FusedSilica 1 mm, incoherent
+Front layers (ambient -> substrate): TiO2 123.79, FusedSilica 212.85, TiO2 118.48, FusedSilica 222.61, TiO2 113.23, FusedSilica 226.91, TiO2 111.47, FusedSilica 226.81, TiO2 113.62, FusedSilica 221.78, TiO2 119.24, FusedSilica 211.36, TiO2 124.54, FusedSilica 201.27, TiO2 127.00 nm
+Back layers  (ambient -> substrate, optimised): FusedSilica 54.59, TiO2 96.58, FusedSilica 170.42, TiO2 120.43 nm
+
+Beam 1: 532 nm, AOI 45 deg, front side, polarization 's'
+               s          p       beam     |d tmmax| |d reference|   coherent min      max
+  R     0.000002   0.025927   0.000002      1.42e-08      3.30e-16       0.000002 0.000002
+  T     0.999998   0.974073   0.999998      2.61e-06      6.66e-15       0.999998 0.999998
+  A     0.000000   0.000000   0.000000      2.62e-06      6.88e-15       0.000000 0.000000
+  back-face ceiling (any passive front coating): T <= 1.000000
+
+Beam 2: 1064 nm, AOI 45 deg, back side, polarization 's'
+               s          p       beam     |d tmmax| |d reference|   coherent min      max
+  R     0.999730   0.993207   0.999730      7.25e-07      1.33e-15       0.996229 0.999981
+  T     0.000270   0.006793   0.000270      2.53e-08      1.47e-17       0.000019 0.003771
+  A     0.000000   0.000000   0.000000      7.50e-07      1.33e-15       0.000000 0.000000
+  back-face ceiling (any passive front coating): T <= 0.247688
+
+target       beam     requirement           achieved (min..max)  worst |d|   share
+T1           1        T = 1                            0.999998   2.23e-06    0.0%
+R2           2        R = 1                            0.999730   2.70e-04  100.0%
+Merit (power, p = 2): 3.6344e-08   MF = 1.9064e-04
+left port = T@1 + R@2 = 1.999728
+up port = R@1 + T@2 = 0.000272
+Stability: max sum Im(delta) over points = 0 (T-matrix overflow at ~88.72 in complex64 / ~709.78 in complex128; the S-matrix engine has no limit)
+Coherent min/max: substrate as an etalon (single-frequency laser, parallel plate); its phase average equals the incoherent value.
+
+Thickness Monte Carlo (1% rel. sigma per layer, 2000 samples):
+  MF: nominal 1.9064e-04, median 7.1085e-03, 95th pct 3.7857e-02
+  T1: worst |d| median 1.00e-02, 95th pct 5.35e-02
+  R2: worst |d| median 2.70e-04, 95th pct 2.75e-04

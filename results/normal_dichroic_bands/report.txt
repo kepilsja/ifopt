@@ -1,0 +1,27 @@
+Config: config/normal_dichroic_bands.toml
+Design: optimised, merit 0.000e+00
+Ambient Air; substrate: FusedSilica, semi-infinite (back surface ignored)
+Front layers (ambient -> substrate): TiO2 115.98, FusedSilica 237.46, TiO2 69.26, FusedSilica 174.09, TiO2 84.36, FusedSilica 190.69, TiO2 119.46, FusedSilica 168.28, TiO2 102.06, FusedSilica 186.90, TiO2 101.94, FusedSilica 191.48, TiO2 123.72, FusedSilica 173.76, TiO2 112.43, FusedSilica 205.31, TiO2 128.22, FusedSilica 202.78, TiO2 122.94, FusedSilica 149.56, TiO2 97.79 nm
+
+Beam pass: 520-545 nm (26 pts), AOI 0 deg, front side, polarization 'unpolarized'
+             min       mean        max     |d tmmax| |d reference|   (beam polarization)
+  R     0.000135   0.003503   0.010797      1.24e-07      1.13e-16
+  T     0.989203   0.996497   0.999865      3.36e-06      1.05e-14
+  A     0.000000   0.000000   0.000000      3.35e-06      1.05e-14
+
+Beam reflect: 1040-1090 nm (26 pts), AOI 0 deg, front side, polarization 'unpolarized'
+             min       mean        max     |d tmmax| |d reference|   (beam polarization)
+  R     0.999755   0.999803   0.999820      3.42e-07      1.67e-15
+  T     0.000180   0.000197   0.000245      1.28e-09      1.73e-18
+  A     0.000000   0.000000   0.000000      3.42e-07      1.67e-15
+
+target       beam     requirement           achieved (min..max)  worst |d|   share
+pass         pass     T >= 0.98              0.989203..0.999865   0.00e+00    0.0%
+reflect      reflect  R >= 0.99              0.999755..0.999820   0.00e+00    0.0%
+Merit (power, p = 2): 0.0000e+00   MF = 0.0000e+00
+Stability: max sum Im(delta) over points = 0 (T-matrix overflow at ~88.72 in complex64 / ~709.78 in complex128; the S-matrix engine has no limit)
+
+Thickness Monte Carlo (1% rel. sigma per layer, 2000 samples):
+  MF: nominal 0.0000e+00, median 0.0000e+00, 95th pct 4.0030e-03
+  pass: worst |d| median 0.00e+00, 95th pct 1.65e-02, requirement met in 67% of samples
+  reflect: worst |d| median 0.00e+00, 95th pct 0.00e+00, requirement met in 100% of samples
