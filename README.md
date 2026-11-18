@@ -27,41 +27,79 @@ in [results/stability/stability_report.md](results/stability/stability_report.md
 
 tmmax is pinned to GitHub commit `dc4b904`. **PyPI tmmax 1.1.4 returns wrong R/T for stacks with two or more layers.**
 
-## Usage
+## Python API
+
+```python
+import ifopt as fo
+
+b1 = fo.Beam("1", wavelength_nm=532, aoi_deg=45, side="front", polarization="s")
+b2 = fo.Beam("2", wavelength_nm=1064, aoi_deg=45, side="back", polarization="s")
+system = fo.FilterSystem(
+    substrate=fo.Substrate("FusedSilica", mode="incoherent", thickness_mm=1.0),
+    front=fo.Coating(fo.alternating("TiO2", "FusedSilica", 15), bounds_nm={"default": (5, 400)}),
+    targets=[b1.eq("T", 1.0, name="T1"), b2.eq("R", 1.0, name="R2")],
+)                                                   # or fo.FilterSystem.from_toml("config/combiner_45.toml")
+
+ev = fo.evaluate(system, fo.Design.quarter_wave(system))     # Evaluation: beams, targets, merit, sums
+opt = fo.optimize(system, settings=fo.OptimizerSettings(n_starts=64))
+opt.design.save("best.json", system)
+variant = system.replace(substrate=fo.Substrate("FusedSilica", mode="semi_infinite"))   # validated copy
+spec = fo.spectrum(system, opt.design, wavelengths_nm=range(450, 1201), aoi_deg=45)
+fig = fo.plot_spectra(system, opt.design)                    # matplotlib Figure
+system.to_toml("my_system.toml")
+```
+
+| Object / function | Purpose |
+|---|---|
+| `FilterSystem`, `Substrate`, `Coating`, `Target`, `Beam`, `Objective`, `OptimizerSettings`, `ReportSum` | Frozen spec objects, validated at construction. Vary them with `.replace(...)`. Use `from_toml`/`from_dict` to load and `to_toml`/`to_dict` to save. |
+| `MaterialLibrary` (`add_constant`, `add_sellmeier`, `add_table`, `add_csv`), `ConstantMaterial`, ... | Materials. A `Material` object can also be placed directly in a `Coating`, and it is registered automatically. |
+| `Design` (`quarter_wave`, `from_system`, `from_x`, `x`, `save`, `load`) | Layer thicknesses of the front coating (and back coating, if any). |
+| `evaluate` → `Evaluation` | R/T/A per beam, target results, merit/MF, sums, fringe envelope, ceiling, engine cross-check. Also `.report()`, `.to_dict()`, `.to_pandas()`. |
+| `optimize` → `OptimizationResult` | Multi-start Adam followed by L-BFGS-B. Pass `start=` for extra starting designs and `settings=` to override the optimizer settings. |
+| `spectrum`, `beam_spectrum`, `angle_scan` → `Spectrum` | Sweeps on any wavelength or AOI grid. |
+| `monte_carlo` → `MonteCarlo` | Robustness to thickness errors. |
+| `stack_rt` | R/T of a hand-written stack, without building a system. |
+| `plot_spectra`, `plot_stack`, `plot_convergence`, `save_plots` | Figures. |
+
+**Library behavior:**
+- **Logging:** ifopt never prints. It logs through `logging.getLogger("ifopt")` and is silent by default. Call `fo.enable_logging()` to see optimizer progress.
+- **Precision:** importing ifopt turns on JAX 64-bit mode. API calls also force it while they run, so results are always float64 NumPy arrays.
+
+The scripts in `examples/` show the API in use:
+- `scripted_combiner.py` builds the combiner in code and checks that it equals the TOML config;
+- `parameter_sweep.py` re-optimizes the bands filter over AOI and substrate models and prints a pandas table;
+- `quick_stack.py` evaluates a hand-written quarter-wave mirror.
+
+## Command line
 
 ```bash
-.venv/bin/python scripts/compute_rt.py --config config/combiner_45.toml
+.venv/bin/ifopt evaluate --config config/combiner_45.toml
 ```
 
 ```bash
-.venv/bin/python scripts/optimize_filter.py --config config/combiner_45.toml --out results/combiner_45
+.venv/bin/ifopt optimize --config config/combiner_45.toml --out results/combiner_45
 ```
 
 ```bash
-.venv/bin/python scripts/optimize_filter.py --config config/normal_dichroic_bands.toml --out results/normal_dichroic_bands
+.venv/bin/ifopt optimize --config config/normal_dichroic_bands.toml --out results/normal_dichroic_bands
 ```
 
 ```bash
-.venv/bin/python scripts/compute_rt.py --config config/combiner_45.toml --design results/combiner_45/design.json
+.venv/bin/ifopt evaluate --config config/combiner_45.toml --design results/combiner_45/design.json
 ```
 
 ```bash
-.venv/bin/python scripts/stability_study.py
+.venv/bin/ifopt stability --config config/combiner_45.toml
 ```
 
 ```bash
 .venv/bin/python -m pytest -q
 ```
 
-`compute_rt.py` evaluates the configured thicknesses, a saved `design.json`, or the quarter-wave seed. Its report covers:
-- R, T and A per beam (s, p, and the beam's polarization), with the differences against tmmax and Byrnes;
-- in the plate modes, the coherent fringe envelope and the back-face ceiling;
-- the target table with each target's achieved value;
-- the merit and figure of merit;
-- the configured sums.
-
-`optimize_filter.py` writes `design.json`, `report.txt` (including a thickness Monte Carlo) and per-beam spectra plots.
-Pass `--starts`, `--steps` or `--global-de` to override the optimizer settings.
+- **Logging options:** `-v` (debug), `-q` (warnings only) and `--log-file PATH` work on every command. `python -m ifopt ...` is equivalent to `ifopt`.
+- **Old scripts:** `scripts/compute_rt.py`, `optimize_filter.py` and `stability_study.py` remain as shims for `ifopt evaluate`, `ifopt optimize` and `ifopt stability`.
+- **`evaluate`** works on a saved `design.json`, the thicknesses given in the config, or the quarter-wave seed. It prints R/T/A per beam, the engine differences, the fringe envelope and ceiling, the target table, the merit and the sums.
+- **`optimize`** writes `design.json`, `report.txt` (with a thickness Monte Carlo) and the plots. `--starts`, `--steps` and `--global-de` override the optimizer settings.
 
 ## Config schema
 
@@ -135,11 +173,15 @@ Custom nk tables go in `materials/<Name>.csv`, with the columns `wavelength_nm,n
 
 | Path | Purpose |
 |---|---|
-| `src/ifopt/targets.py` | Target rows, expansion, beams, deviations |
-| `src/ifopt/config.py` | TOML schema → dataclasses, validation, design vector |
+| `src/ifopt/api.py` | Public operations and result types (`evaluate`, `optimize`, `spectrum`, `monte_carlo`, `stack_rt`, report) |
+| `src/ifopt/cli.py` | `ifopt` command (`evaluate`, `optimize`, `stability`), logging setup |
+| `src/ifopt/design.py`, `io.py` | `Design` (thicknesses, design.json); TOML writer |
+| `src/ifopt/targets.py` | `Target`, `Beam`, resolution, expansion, deviations |
+| `src/ifopt/config.py` | `FilterSystem` and spec objects, validation, dict/TOML round trip, design vector |
 | `src/ifopt/plate.py` | Substrate modes, evaluation `Model`, fringe scan, back-face ceiling, engine cross-check |
 | `src/ifopt/engines/` | S-matrix (default), tmmax adapter, Byrnes reference |
-| `src/ifopt/objectives.py`, `optimize.py` | Merit forms, quarter-wave seed, vmapped Adam → L-BFGS-B, optional DE |
-| `src/ifopt/analysis.py` | Per-beam spectra vs wavelength and angle, thickness Monte Carlo, plots |
+| `src/ifopt/objectives.py`, `optimizer.py` | Merit forms, quarter-wave seed, vmapped Adam → L-BFGS-B, optional DE |
+| `src/ifopt/analysis.py`, `plotting.py` | Spectra and Monte Carlo computations; Figure-returning plots |
+| `src/ifopt/stability.py` | Numerical-stability study (`ifopt stability`) |
 | `src/ifopt/materials.py` | Material library; raises outside the tabulated range |
 | `src/ifopt/geometry.py` | `system.xml` port mapping (combiner tests) |

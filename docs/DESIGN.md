@@ -111,7 +111,27 @@ Why tmmax is only a cross-check (all measured):
 - **Other checks:** coherent phase average = incoherent result; `check_grads` on the merit; regression of the reference
   designs; stress sweeps of thick absorbers up to 60 µm.
 
-## 8. Reference results (`results/<config>/`)
+## 8. Library API
+
+- **Spec objects:** frozen dataclasses (`FilterSystem`, `Substrate`, `Coating`, `Target`, `Beam`, ...).
+  - They validate themselves when constructed, so code and TOML go through exactly the same checks. This includes
+    material lookup and wavelength coverage, so errors appear before any JAX tracing.
+  - Variants are made with `replace`, which re-validates.
+  - TOML is just one serialization: `from_toml` and `to_toml` round-trip exactly, custom materials included.
+- **Targets:** a `Target` stores the spec as written. Beam inheritance is resolved inside `FilterSystem`.
+  `Beam.eq/min/max` builds targets for one operating condition.
+- **Functions over objects:** `evaluate`, `optimize`, `spectrum` and `monte_carlo` take a system and a `Design` (or a
+  plain vector).
+  - They return frozen result objects holding floats and NumPy arrays, never JAX arrays.
+  - They run inside `jax.enable_x64(True)`, so results stay float64 even if the caller turned 64-bit mode off.
+- **Logging only:** the package never prints, and a test enforces this.
+  - Each module logs to `ifopt.<module>`, and the package logger has a `NullHandler`.
+  - `enable_logging()` attaches a single handler, for scripts and notebooks.
+  - The CLI sets up stdout or file handlers with `-v`, `-q` and `--log-file`.
+- **CLI:** `ifopt evaluate|optimize|stability` is a thin layer over the API. Its output for the same input is
+  identical to the earlier scripts, which remain as shims.
+
+## 9. Reference results (`results/<config>/`)
 
 | Config | Result | Note |
 |---|---|---|
