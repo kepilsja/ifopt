@@ -1,0 +1,51 @@
+# Example: 532 nm + 1064 nm beam combiner at 45 deg (wavelengths are placeholders - put yours here).
+# Geometry (system.xml): source 1 arrives on the upper-right face, source 2 on the lower-left face.
+# Ports: left = {T1, R2}, up = {R1, T2}.
+
+[system]
+aoi_deg = 45.0
+ambient = "Air"                 # tmmax database (n = 1.00028)
+
+[source1]                       # "wavelength 1" (red arrow)
+wavelength_nm = 532.0
+polarization = "s"              # "s" | "p" | "unpolarized" | azimuth in deg (0 = p, 90 = s)
+
+[source2]                       # "wavelength 2" (green arrow)
+wavelength_nm = 1064.0
+polarization = "s"
+
+[plate]
+substrate = "FusedSilica"       # built-in Malitson Sellmeier (k = 0).  NOTE: tmmax's "SiO2" table has
+                                # k = 0.002 at 532 nm, which would make a 1 mm plate opaque (tau ~ e^-47).
+substrate_thickness_mm = 1.0
+coated_face = "source1"         # the coating faces source 1; source 2 enters through the back face
+back_materials = []             # bare back face. For an optimised back-face AR coating use a
+back_thickness_nm = []          # [back_coating] section instead - see config/example_back_ar.toml
+
+[coating]
+# ambient -> substrate order; H = TiO2 (tmmax database), L = FusedSilica
+materials = ["TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica",
+             "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2", "FusedSilica", "TiO2"]
+# thickness_nm = [...]          # optional design to evaluate; omitted -> quarter-wave seed
+[coating.bounds_nm]
+default = [5.0, 400.0]
+
+[objective]
+maximize = ["T1", "R2"]         # or: port = "left"
+weights = [1.0, 1.0]
+form = "least_squares"          # least_squares | log | softmin
+both_polarizations = false      # true: targets must hold for s AND p separately
+
+[optimizer]
+n_starts = 256
+adam_steps = 600
+adam_lr = 0.05
+top_k = 8
+seed = 0
+global_de = false
+
+# Custom materials (examples):
+# [[materials.custom]]
+# name = "AgLike"; type = "constant"; n = 0.05; k = 3.4      # illustrative only
+# [[materials.custom]]
+# name = "Ag"; type = "csv"; path = "../materials/Ag.csv"    # wavelength_nm,n,k (e.g. refractiveindex.info)
