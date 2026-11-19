@@ -65,31 +65,20 @@ def _cmd_evaluate(args) -> int:
 
 
 def _cmd_optimize(args) -> int:
-    from .api import monte_carlo, optimize
+    from .api import optimize
     from .config import FilterSystem
-    from .plotting import save_plots
+    from .runs import write_run
     system = FilterSystem.from_toml(args.config)
     oc = system.optimizer
     settings = replace(oc, n_starts=args.starts or oc.n_starts, adam_steps=args.steps or oc.adam_steps,
                        global_de=args.global_de or oc.global_de)
     out = Path(args.out) if args.out else Path("results") / time.strftime("%Y%m%d-%H%M%S")
-    out.mkdir(parents=True, exist_ok=True)
     t = system.table
     logger.info("%d targets -> %d target points at %d evaluation points; %d front layers%s; substrate mode %s",
                 len(t.rows), t.t_point.size, t.n_points, system.n_front,
                 f" + {len(system.back.materials)} back layers" if system.back_optimized else "", system.mode)
     res = optimize(system, settings=settings, engines=("tmmax", "reference"))
-    text = res.evaluation.report() + "\n\n" + monte_carlo(system, res.design).summary()
-    logger.info("")
-    logger.info(text)
-    (out / "report.txt").write_text(text + "\n")
-    res.design.save(out / "design.json", system, config=_rel(system.source), substrate_mode=system.mode,
-                    merit=res.merit, mf=res.mf,
-                    objective={"form": system.objective.form, "power": system.objective.power},
-                    targets=[r.__dict__ for r in res.evaluation.targets], timings_s=res.timings,
-                    top_candidates=[{"merit": v, "x_nm": d.x(system).tolist()} for v, d in res.candidates[:5]])
-    logger.info("saved %s", out / "report.txt")
-    save_plots(system, res.design, out, res.history)
+    write_run(out, system, res)
     return 0
 
 

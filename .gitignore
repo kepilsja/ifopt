@@ -14,3 +14,6 @@ results/2*/
 
 # outputs of the example scripts
 results/examples/
+experiments/
+
+CLAUDE.md

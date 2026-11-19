@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 452" width="820" height="452"
+     font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" fill="#24292f">
+  <title>Where the light comes from (side = front or back) in each substrate mode</title>
+  <style>
+    .in  { stroke: #24292f; stroke-width: 2; fill: none; marker-end: url(#m-in); }
+    .r   { stroke: #bc4c00; stroke-width: 2; fill: none; marker-end: url(#m-r); }
+    .t   { stroke: #1a7f37; stroke-width: 2; fill: none; marker-end: url(#m-t); }
+    .ti  { stroke: #1a7f37; stroke-width: 1.4; stroke-dasharray: 4 3; fill: none; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .med { font-size: 10px; fill: #57606a; text-anchor: middle; }
+    .cap { font-size: 11px; fill: #57606a; text-anchor: middle; }
+    .lr  { font-size: 11px; font-weight: 700; text-anchor: middle; }
+    .H { fill: #5b7db8; } .L { fill: #c3d4ee; } .edge { fill: none; stroke: #8c959f; }
+  </style>
+  <defs>
+    <marker id="m-in" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9"
+            markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#24292f"/></marker>
+    <marker id="m-r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9"
+            markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#bc4c00"/></marker>
+    <marker id="m-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9"
+            markerUnits="userSpaceOnUse" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1a7f37"/></marker>
+    <linearGradient id="fade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#e5e7ea"/><stop offset="0.6" stop-color="#e5e7ea"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+
+    <!-- ambient | front | substrate | back | ambient -->
+    <g id="plate">
+      <rect class="H" x="50" y="10" width="7" height="100"/><rect class="L" x="57" y="10" width="7" height="100"/>
+      <rect class="H" x="64" y="10" width="7" height="100"/>
+      <rect x="71" y="10" width="68" height="100" fill="#e5e7ea"/>
+      <rect class="H" x="139" y="10" width="7" height="100"/><rect class="L" x="146" y="10" width="7" height="100"/>
+      <rect class="H" x="153" y="10" width="7" height="100"/>
+      <rect class="edge" x="50" y="10" width="110" height="100"/>
+      <text class="med" x="25" y="104">ambient</text><text class="med" x="105" y="104">substrate</text>
+      <text class="med" x="185" y="104">ambient</text>
+    </g>
+    <!-- ambient | front | semi-infinite substrate -->
+    <g id="semi">
+      <rect x="91" y="10" width="119" height="100" fill="url(#fade)"/>
+      <rect class="H" x="70" y="10" width="7" height="100"/><rect class="L" x="77" y="10" width="7" height="100"/>
+      <rect class="H" x="84" y="10" width="7" height="100"/>
+      <path class="edge" d="M210,10 H70 V110 H210"/>
+      <text class="med" x="35" y="104">ambient</text><text class="med" x="145" y="104">substrate</text>
+    </g>
+    <!-- ambient | front | exit medium -->
+    <g id="none">
+      <rect x="91" y="10" width="119" height="100" fill="#f6f8fa"/>
+      <rect class="H" x="70" y="10" width="7" height="100"/><rect class="L" x="77" y="10" width="7" height="100"/>
+      <rect class="H" x="84" y="10" width="7" height="100"/>
+      <rect class="edge" x="70" y="10" width="21" height="100"/>
+      <text class="med" x="35" y="104">ambient</text><text class="med" x="150" y="104">exit medium</text>
+    </g>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="819" height="451" rx="10" fill="#ffffff" stroke="#d0d7de"/>
+  <text x="24" y="34" font-size="15" font-weight="600">Where the light comes from (side), by substrate mode</text>
+
+  <!-- legend -->
+  <line class="in" x1="540" y1="30" x2="566" y2="30"/><text x="572" y="34" font-size="12">incoming</text>
+  <line class="r" x1="636" y1="30" x2="662" y2="30"/><text x="668" y="34" font-size="12">R</text>
+  <line class="t" x1="696" y1="30" x2="722" y2="30"/><text x="728" y="34" font-size="12">T</text>
+
+  <!-- column headers -->
+  <g class="mono" font-size="13" text-anchor="middle">
+    <text x="245" y="78">incoherent / coherent</text>
+    <text x="470" y="78">semi_infinite</text>
+    <text x="695" y="78">none</text>
+  </g>
+  <!-- row headers -->
+  <text class="mono" x="24" y="152" font-size="12">side = "front"</text>
+  <text x="24" y="168" font-size="11" fill="#57606a">(the default)</text>
+  <text class="mono" x="24" y="312" font-size="12">side = "back"</text>
+
+  <!-- row 1: side = "front" -->
+  <g transform="translate(140,88)">
+    <use href="#plate"/>
+    <line class="in" x1="6" y1="24" x2="49" y2="44"/>
+    <line class="r" x1="50" y1="44" x2="8" y2="64"/>
+    <line class="ti" x1="50" y1="44" x2="160" y2="60"/>
+    <line class="t" x1="160" y1="60" x2="202" y2="80"/>
+    <text class="lr" x="14" y="80" fill="#bc4c00">R</text><text class="lr" x="194" y="66" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">T leaves through the back face</text>
+  </g>
+  <g transform="translate(365,88)">
+    <use href="#semi"/>
+    <line class="in" x1="16" y1="24" x2="69" y2="44"/>
+    <line class="r" x1="70" y1="44" x2="18" y2="64"/>
+    <line class="t" x1="70" y1="44" x2="196" y2="68"/>
+    <text class="lr" x="24" y="80" fill="#bc4c00">R</text><text class="lr" x="188" y="86" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">T = power entering the substrate</text>
+  </g>
+  <g transform="translate(590,88)">
+    <use href="#none"/>
+    <line class="in" x1="16" y1="24" x2="69" y2="44"/>
+    <line class="r" x1="70" y1="44" x2="18" y2="64"/>
+    <polyline class="t" points="70,44 91,46 176,74"/>
+    <text class="lr" x="24" y="80" fill="#bc4c00">R</text><text class="lr" x="178" y="90" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">T enters the exit medium</text>
+  </g>
+
+  <!-- row 2: side = "back" -->
+  <g transform="translate(140,248)">
+    <use href="#plate"/>
+    <line class="in" x1="204" y1="24" x2="161" y2="44"/>
+    <line class="r" x1="160" y1="44" x2="202" y2="64"/>
+    <line class="ti" x1="160" y1="44" x2="50" y2="60"/>
+    <line class="t" x1="50" y1="60" x2="8" y2="80"/>
+    <text class="lr" x="196" y="80" fill="#bc4c00">R</text><text class="lr" x="18" y="66" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">AOI measured in the ambient</text>
+  </g>
+  <g transform="translate(365,248)">
+    <use href="#semi"/>
+    <line class="in" x1="200" y1="24" x2="92" y2="44"/>
+    <line class="r" x1="91" y1="44" x2="198" y2="64"/>
+    <polyline class="t" points="91,44 70,46 18,70"/>
+    <text class="lr" x="192" y="80" fill="#bc4c00">R</text><text class="lr" x="24" y="86" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">AOI measured in the substrate</text>
+  </g>
+  <g transform="translate(590,248)">
+    <use href="#none"/>
+    <line class="in" x1="196" y1="24" x2="92" y2="44"/>
+    <line class="r" x1="91" y1="44" x2="194" y2="64"/>
+    <polyline class="t" points="91,44 70,46 18,70"/>
+    <text class="lr" x="188" y="80" fill="#bc4c00">R</text><text class="lr" x="24" y="86" fill="#1a7f37">T</text>
+    <text class="cap" x="105" y="130">AOI measured in the exit medium</text>
+  </g>
+
+  <text x="24" y="414" font-size="12.5">AOI (aoi_deg) is the angle in the medium the light comes from, and that medium must be lossless.</text>
+  <text x="24" y="434" font-size="12.5" fill="#57606a">Along the same path, T is the same from either side (reciprocity); R and A differ as soon as anything absorbs.</text>
+</svg>

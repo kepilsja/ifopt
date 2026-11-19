@@ -45,15 +45,21 @@ def _logit(x):
 
 
 def initial_designs(cfg: Config, n_starts: int, rng: np.random.Generator, extra=()) -> np.ndarray:
-    """Quarter-wave seed, configured / user-supplied starts, 25% jittered seeds, uniform random rest."""
+    """Quarter-wave seed, configured / user-supplied starts, 25% jittered starts (relative sigma
+    ``optimizer.jitter``), uniform random rest."""
     lo, hi = map(np.asarray, cfg.design_bounds())
     L = lo.size
     seeds = [quarter_wave_seed(cfg)]
     if (x_cfg := cfg.configured_design()) is not None:
         seeds.append(np.clip(x_cfg, lo, hi))
-    seeds += [np.clip(np.asarray(x, float), lo, hi) for x in extra]
+    user = [np.clip(np.asarray(x, float), lo, hi) for x in extra]
+    seeds += user
+    # jittered copies around the user-supplied starts if any (e.g. a bandpass template), else around
+    # the quarter-wave seed; round-robin over several user starts
+    centers = user or seeds[:1]
     n_jitter = max(0, n_starts // 4)
-    jitter = [np.clip(seeds[0] * rng.normal(1.0, 0.15, L), lo, hi) for _ in range(n_jitter)]
+    jitter = [np.clip(centers[j % len(centers)] * rng.normal(1.0, cfg.optimizer.jitter, L), lo, hi)
+              for j in range(n_jitter)]
     n_rand = max(0, n_starts - len(seeds) - n_jitter)
     rand = list(rng.uniform(lo, hi, size=(n_rand, L)))
     return np.asarray(seeds + jitter + rand)

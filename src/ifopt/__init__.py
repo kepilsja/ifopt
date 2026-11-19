@@ -32,6 +32,7 @@ from .design import Design  # noqa: E402
 from .materials import (ConstantMaterial, Material, MaterialLibrary, MaterialRangeError,  # noqa: E402
                         SellmeierMaterial, TabulatedMaterial)
 from .plotting import plot_convergence, plot_spectra, plot_stack, save_plots  # noqa: E402
+from .runs import write_run  # noqa: E402
 from .targets import Beam, Target, alternating  # noqa: E402
 
 
@@ -56,5 +57,5 @@ __all__ = [
     "ReportSum", "SellmeierMaterial", "Spectrum", "StackRT", "Substrate", "TabulatedMaterial", "Target",
     "TargetResult", "alternating", "angle_scan", "beam_spectrum", "enable_logging", "evaluate", "load_config",
     "monte_carlo", "optimize", "plot_convergence", "plot_spectra", "plot_stack", "report", "save_plots", "spectrum",
-    "stack_rt", "__version__",
+    "stack_rt", "write_run", "__version__",
 ]

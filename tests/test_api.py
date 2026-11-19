@@ -174,3 +174,25 @@ def test_enable_logging_attaches_one_handler():
         for h in [h for h in log.handlers if getattr(h, "_ifopt_enable_logging", False)]:
             log.removeHandler(h)
         log.setLevel(logging.NOTSET)
+
+
+def test_jittered_starts_center_on_user_start(toml_system):
+    from ifopt.optimizer import initial_designs
+    rng = np.random.default_rng(0)
+    seed = fo.Design.quarter_wave(toml_system).x(toml_system) * 1.3
+    D = initial_designs(toml_system, 400, rng, extra=[seed])
+    n_fixed = 2                                         # QW seed + user start (no configured thicknesses)
+    jit = D[n_fixed:n_fixed + 100]
+    assert np.allclose(D[1], np.clip(seed, *map(np.asarray, toml_system.design_bounds())))
+    # centred on the user start (ratio ~1), not on the quarter-wave seed (ratio ~1.3 away)
+    assert abs(np.median(jit / D[1]) - 1.0) < 0.03
+    assert abs(np.median(jit / D[0]) - 1.0) > 0.2
+
+
+def test_write_run_layout(tmp_path, toml_system):
+    opt = fo.optimize(toml_system, settings=fo.OptimizerSettings(n_starts=8, adam_steps=50, top_k=2))
+    paths = fo.write_run(tmp_path / "run", toml_system, opt, extra={"note": "x"}, mc_samples=50)
+    for f in ("config.toml", "design.json", "report.txt", "spectra.png", "stack.png", "convergence.png"):
+        assert (tmp_path / "run" / f).exists()
+    assert fo.FilterSystem.from_toml(paths["config"]) == toml_system
+    assert json.loads(paths["design"].read_text())["note"] == "x"

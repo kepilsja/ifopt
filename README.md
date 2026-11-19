@@ -113,7 +113,7 @@ mode = "incoherent"            # incoherent | coherent | semi_infinite | none
 thickness_mm = 1.0             # incoherent / coherent
 exit_medium = "Air"            # mode = "none" (default: ambient)
 
-[front]                        # coating on the front face, ambient -> substrate order
+[front]                        # coating on the front face; layers listed from the ambient inward (Figure 1)
 materials = ["TiO2", "FusedSilica", "TiO2"]
 thickness_nm = [100, 180, 100] # optional: design to evaluate / extra starting point
 optimize = true
@@ -121,15 +121,23 @@ optimize = true
 default = [5.0, 400.0]         # per-material keys allowed, e.g. TiO2 = [10, 300]
 
 [back]                         # optional, plate modes only; optimize = false needs thickness_nm
-materials = ["FusedSilica", "TiO2"]
+materials = ["FusedSilica", "TiO2"]  # also listed from the ambient inward: materials[0] is the outermost layer
+```
 
+![Front coating, substrate and back coating in cross-section. Both layer lists are numbered from the ambient inward.](docs/img/faces.svg)
+
+**Figure 1.** `[front]` and `[back]` are the coatings on the plate's two faces. Both lists start at the air side, so
+across the plate the `[back]` list appears reversed: ambient | front[0] … front[L-1] | substrate | back[M-1] … back[0] |
+ambient.
+
+```toml
 [[targets]]                    # one row per requirement
 name = "pass"                  # unique
 beam = "pass"                  # operating condition label (default: name); rows on one beam share it
-side = "front"                 # front | back (back face, or from the substrate side in the stack modes)
+side = "front"                 # where the light comes from: front | back (Figure 2)
 wavelength_nm = [520, 545]     # scalar, explicit list, or [start, stop] with points = N
 points = 26
-aoi_deg = 0.0                  # scalar or [start, stop] with aoi_points = N; in the incidence medium
+aoi_deg = 0.0                  # scalar or [start, stop] with aoi_points = N; in the medium the light comes from
 polarization = "unpolarized"   # s | p | unpolarized | both | azimuth in degrees (0 = p, 90 = s)
 quantity = "T"                 # R | T | A
 kind = "min"                   # eq | min (lower bound) | max (upper bound)
@@ -156,6 +164,15 @@ terms = ["T@1", "R@2"]         # quantity@beam (single-point beams)
 | `coherent` | same, with the substrate as an etalon at its physical phase | single-frequency analysis |
 | `semi_infinite` | ambient \| front \| substrate | substrate "off": back surface ignored, no fringes |
 | `none` | ambient \| front \| exit medium | free-standing stack |
+
+![Incoming, reflected and transmitted light for side = front and side = back in each substrate mode.](docs/img/sides.svg)
+
+**Figure 2.** `side` says where the light comes from:
+- **`front`** (the default): from the ambient onto the front coating.
+- **`back`:** onto the back coating in the plate modes, or from inside the substrate or exit medium in the stack modes.
+
+The AOI is measured in the medium the light comes from. A back-side 45° in `semi_infinite` mode is therefore 45°
+inside the glass. On fused silica that is past the critical angle (about 43–44°), so the light is totally reflected.
 
 ## Examples
 

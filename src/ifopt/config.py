@@ -128,6 +128,7 @@ class OptimizerSettings:
     global_de: bool = False
     de_maxiter: int = 300
     de_popsize: int = 20
+    jitter: float = 0.15                        # relative sigma of the jittered starts
 
     def __post_init__(self):
         for f in ("n_starts", "adam_steps", "top_k", "de_maxiter", "de_popsize"):
@@ -136,6 +137,9 @@ class OptimizerSettings:
             object.__setattr__(self, f, int(getattr(self, f)))
         if self.adam_lr <= 0:
             raise ValueError("optimizer adam_lr must be > 0")
+        object.__setattr__(self, "jitter", float(self.jitter))
+        if not 0 <= self.jitter < 1:
+            raise ValueError("optimizer jitter must be in [0, 1)")
 
 
 @dataclass(frozen=True)
