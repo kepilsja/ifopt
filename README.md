@@ -189,119 +189,211 @@ Custom nk tables go in `materials/<Name>.csv`, with the columns `wavelength_nm,n
 
 ## Physics model
 
-ifopt treats a filter as flat, uniform layers hit by a plane wave of one wavelength. Its central assumption is that the
-thin layers interfere coherently while the thick substrate does not. It computes the reflected, transmitted and
-absorbed power fractions (R, T, A), then adjusts the layer thicknesses until those fractions match the target table.
+ifopt treats a filter as flat, uniform layers hit by a plane wave of one wavelength. Its central assumption is that the thin layers interfere coherently while the thick substrate does not. It computes the reflected, transmitted and absorbed power fractions ($R$, $T$, $A$), then adjusts the layer thicknesses until those fractions match the target table.
 
 ### Assumptions
 
-- **Geometry:** the coatings are stacks of homogeneous, isotropic layers with flat, parallel interfaces. Roughness,
-  scattering, graded interfaces and birefringence are not modelled.
-- **Materials:** each material has a complex refractive index N = n + ik as a function of wavelength. k ≥ 0 is the
-  absorption. The values come from tables or Sellmeier fits ([materials.py](src/ifopt/materials.py)).
-- **Light:** a monochromatic plane wave with wavelength λ, angle of incidence θ₀ and polarization s or p. A spectrum is
-  this calculation repeated at many wavelengths.
+- **Geometry:** the coatings are stacks of homogeneous, isotropic layers with flat, parallel interfaces. Roughness, scattering, graded interfaces and birefringence are not modelled.
+- **Materials:** each material has a complex refractive index $N=n+ik$ as a function of wavelength. $k\geq 0$ is the absorption. The values come from tables or Sellmeier fits ([materials.py](src/ifopt/materials.py)).
+- **Light:** a monochromatic plane wave with wavelength $\lambda$, angle of incidence $\theta_0$ and polarization s or p. A spectrum is this calculation repeated at many wavelengths.
 
 ### Waves inside the layers
 
-The wavevector component parallel to the interfaces is the same in every layer (phase matching, which is Snell's law).
-In units of k₀ = 2π/λ:
+The wavevector component parallel to the interfaces is the same in every layer (phase matching, which is Snell's law). In units of $k_0=2\pi/\lambda$:
 
-```
-kx  = n₀ sin θ₀                        (fixed through the whole stack)
-q_j = √(N_j² − kx²) = N_j cos θ_j      (normal component in layer j)
-```
+$$
+k_x=n_0\sin\theta_0
+$$
 
-In each layer the field is a forward wave plus a backward wave, e^{±i·k₀·q_j·z}. The square root has two solutions. The
-engine takes the one with Im q ≥ 0, so the forward wave decays as it travels. That is the physical choice for absorbing
-layers and for evanescent waves beyond total internal reflection (`kz` in
-[stable_engine.py](src/ifopt/engines/stable_engine.py)).
+$$
+q_j=\sqrt{N_j^2-k_x^2}=N_j\cos\theta_j
+$$
+
+In each layer the field is a forward wave plus a backward wave:
+
+$$
+E_j(z)=E_j^+e^{ik_0q_jz}+E_j^-e^{-ik_0q_jz}
+$$
+
+The square root has two solutions. The engine takes the one with
+
+$$
+\operatorname{Im}(q_j)\geq 0
+$$
+
+so the forward wave decays as it travels. That is the physical choice for absorbing layers and for evanescent waves beyond total internal reflection (`kz` in [stable_engine.py](src/ifopt/engines/stable_engine.py)).
 
 ### Interfaces and layer phases
 
-**Interfaces** follow the Fresnel equations, which express continuity of the tangential E and H fields:
+**Interfaces** follow the Fresnel equations, which express continuity of the tangential E and H fields.
 
-```
-s:  r = (q_i − q_j)/(q_i + q_j)                       t = 2q_i/(q_i + q_j)
-p:  r = (N_j²q_i − N_i²q_j)/(N_j²q_i + N_i²q_j)        t = 2N_iN_jq_i/(N_j²q_i + N_i²q_j)
-```
+For s-polarization:
 
-The N² factors in the p formulas produce Brewster's angle; the tests check that p-reflectance is zero there.
+$$
+r_s=\frac{q_i-q_j}{q_i+q_j}
+\qquad
+t_s=\frac{2q_i}{q_i+q_j}
+$$
 
-**Crossing a layer** of thickness d multiplies the amplitude by e^{iδ}, where δ = 2π·q·d/λ.
-- Re δ is the phase. It sets the interference: a quarter-wave layer (δ = π/2) makes reflections from its two faces add
-  in phase, and a half-wave layer (δ = π) is optically absent at its design wavelength.
-- Im δ is the absorption: |e^{iδ}| = e^{−Im δ} ≤ 1.
+For p-polarization:
+
+$$
+r_p=\frac{N_j^2q_i-N_i^2q_j}{N_j^2q_i+N_i^2q_j}
+\qquad
+t_p=\frac{2N_iN_jq_i}{N_j^2q_i+N_i^2q_j}
+$$
+
+The $N^2$ factors in the p formulas produce Brewster's angle; the tests check that p-reflectance is zero there.
+
+**Crossing a layer** of thickness $d$ multiplies the amplitude by $e^{i\delta}$, where
+
+$$
+\delta=\frac{2\pi qd}{\lambda}
+$$
+
+- $\operatorname{Re}(\delta)$ is the phase. It sets the interference: a quarter-wave layer ($\delta=\pi/2$) makes reflections from its two faces add in phase, and a half-wave layer ($\delta=\pi$) is optically absent at its design wavelength.
+- $\operatorname{Im}(\delta)$ is the absorption:
+
+$$
+|e^{i\delta}|=e^{-\operatorname{Im}(\delta)}\leq 1
+$$
 
 All filter behaviour follows from these two building blocks:
-- **Mirrors:** quarter-wave (HL)^p stacks are mirrors with a stop band of half-width
-  (2/π)·asin((n_H − n_L)/(n_H + n_L)), in relative frequency.
-- **Bandpass:** a half-wave spacer between two mirrors is a Fabry–Pérot resonator. Coupling several of them gives a
-  flat-topped bandpass.
-- **Edge filters:** (L/2 H L/2)^q and (H/2 L H/2)^q stacks are edge filters, used for blocking outside a passband.
+
+- **Mirrors:** quarter-wave $(HL)^p$ stacks are mirrors with a stop band of half-width
+
+$$
+\frac{2}{\pi}\arcsin\left(\frac{n_H-n_L}{n_H+n_L}\right)
+$$
+
+in relative frequency.
+- **Bandpass:** a half-wave spacer between two mirrors is a Fabry–Pérot resonator. Coupling several of them gives a flat-topped bandpass.
+- **Edge filters:** $(L/2\ H\ L/2)^q$ and $(H/2\ L\ H/2)^q$ stacks are edge filters, used for blocking outside a passband.
 
 ### Adding up the multiple reflections
 
-Each interface or layer is described by four amplitudes: reflection and transmission from each side (r, t, r′, t′).
-Two elements A and B are joined with the Redheffer star product:
+Each interface or layer is described by four amplitudes: reflection and transmission from each side ($r,t,r',t'$). Two elements $A$ and $B$ are joined with the Redheffer star product:
 
-```
-r_AB = r_A + t′_A · r_B · t_A / (1 − r′_A · r_B)
-t_AB = t_A · t_B / (1 − r′_A · r_B)
-```
+$$
+r_{AB}=r_A+\frac{t'_A r_B t_A}{1-r'_A r_B}
+$$
 
-The denominator 1/(1 − r′_A·r_B) is the geometric series of the light bouncing back and forth between A and B. Each
-term is a real sequence of bounces, and its size never exceeds 1.
+$$
+t_{AB}=\frac{t_A t_B}{1-r'_A r_B}
+$$
 
-The more common transfer-matrix method (used by tmmax and Byrnes' `tmm`) also has to carry the growing exponential
-e^{+Im δ}. In thick absorbing stacks that overflows: float32 fails at a total Im δ of about 89, and float64 at about
-709. The S-matrix method only multiplies by the decaying factor, so it handles any thickness and any amount of loss.
-That is why it is the default engine; the evidence is in
-[results/stability/stability_report.md](results/stability/stability_report.md).
+The denominator
+
+$$
+\frac{1}{1-r'_A r_B}
+$$
+
+is the geometric series of the light bouncing back and forth between $A$ and $B$. Each term is a real sequence of bounces, and its size never exceeds 1.
+
+The more common transfer-matrix method (used by tmmax and Byrnes' `tmm`) also has to carry the growing exponential $e^{+\operatorname{Im}(\delta)}$. In thick absorbing stacks that overflows: float32 fails at a total $\operatorname{Im}(\delta)$ of about 89, and float64 at about 709. The S-matrix method only multiplies by the decaying factor, so it handles any thickness and any amount of loss. That is why it is the default engine; the evidence is in [results/stability/stability_report.md](results/stability/stability_report.md).
 
 ### From amplitudes to power
 
-R and T are ratios of the power flux normal to the surface (the Poynting vector), not just |amplitude|²:
+R and T are ratios of the power flux normal to the surface (the Poynting vector), not just $|\text{amplitude}|^2$.
 
-```
-R = |r|²
-T = |t|² · Re(q_out)/Re(q_in)                                        (s)
-T = |t|² · Re(N_out·conj(q_out/N_out)) / Re(N_in·conj(q_in/N_in))     (p)
-A = 1 − R − T        (energy conservation: power absorbed in the layers)
-```
+Reflectance:
+
+$$
+R=|r|^2
+$$
+
+Transmittance for s-polarization:
+
+$$
+T_s=|t|^2
+\frac{\operatorname{Re}(q_{\mathrm{out}})}
+     {\operatorname{Re}(q_{\mathrm{in}})}
+$$
+
+Transmittance for p-polarization:
+
+$$
+T_p=|t|^2
+\frac{
+\operatorname{Re}\left(
+N_{\mathrm{out}}\operatorname{conj}\left(q_{\mathrm{out}}/N_{\mathrm{out}}\right)
+\right)
+}{
+\operatorname{Re}\left(
+N_{\mathrm{in}}\operatorname{conj}\left(q_{\mathrm{in}}/N_{\mathrm{in}}\right)
+\right)
+}
+$$
+
+Absorption:
+
+$$
+A=1-R-T
+$$
 
 The tests check two physical facts:
-- **No loss:** R + T = 1 for a lossless stack.
-- **Reciprocity:** T is the same in both directions. R and A depend on the side as soon as something absorbs, because
-  an absorbing layer near the incident side affects reflection differently from one far from it.
 
-**Polarization:** s and p are computed separately and mixed afterwards. Unpolarized light is their average. A
-polarization azimuth ψ uses the weights (sin²ψ, cos²ψ), with 0° = p. At normal incidence s and p are identical, and a
-test checks this in every substrate mode.
+- **No loss:** $R+T=1$ for a lossless stack.
+- **Reciprocity:** $T$ is the same in both directions. R and A depend on the side as soon as something absorbs, because an absorbing layer near the incident side affects reflection differently from one far from it.
+
+**Polarization:** s and p are computed separately and mixed afterwards. Unpolarized light is their average:
+
+$$
+R_{\mathrm{unpolarized}}=\frac{R_s+R_p}{2}
+\qquad
+T_{\mathrm{unpolarized}}=\frac{T_s+T_p}{2}
+$$
+
+A polarization azimuth $\psi$ uses the weights $(\sin^2\psi,\cos^2\psi)$, with $0^\circ=\mathrm{p}$:
+
+$$
+R(\psi)=R_p\cos^2\psi+R_s\sin^2\psi
+$$
+
+$$
+T(\psi)=T_p\cos^2\psi+T_s\sin^2\psi
+$$
+
+At normal incidence s and p are identical, and a test checks this in every substrate mode.
 
 ### The substrate
 
-A 1 mm substrate is itself a Fabry–Pérot etalon. Its fringe spacing is Δλ = λ²/(2nD):
+A 1 mm substrate is itself a Fabry–Pérot etalon. Its fringe spacing is
+
+$$
+\Delta\lambda=\frac{\lambda^2}{2nD}
+$$
+
 - about 0.1 nm at 532 nm for fused silica;
 - about 12.5 nm at 10 µm for Ge.
 
-Thermal sources, broadband detectors and multimode lasers average over these fringes, so the `incoherent` mode adds
-intensities, not amplitudes ([plate.py](src/ifopt/plate.py)). Each coated face is first solved coherently between the
-ambient and the substrate, giving R_a, T_a, R′_a (as seen from inside) and the same for the back face b. Then the
-incoherent bounces inside the plate are summed:
+Thermal sources, broadband detectors and multimode lasers average over these fringes, so the `incoherent` mode adds intensities, not amplitudes ([plate.py](src/ifopt/plate.py)). Each coated face is first solved coherently between the ambient and the substrate, giving $R_a$, $T_a$, $R'_a$ (as seen from inside) and the same for the back face $b$. Then the incoherent bounces inside the plate are summed:
 
-```
-R = R_a + T_a·T′_a·R_b·τ² / (1 − R′_a·R_b·τ²)
-T = T_a·T_b·τ / (1 − R′_a·R_b·τ²)
-τ = exp(−4π·D·Im q_sub/λ)        (one-pass internal power transmittance)
-```
+$$
+R=R_a+\frac{T_aT'_aR_b\tau^2}{1-R'_aR_b\tau^2}
+$$
+
+$$
+T=\frac{T_aT_b\tau}{1-R'_aR_b\tau^2}
+$$
+
+$$
+\tau=\exp\left(-\frac{4\pi D\operatorname{Im}(q_{\mathrm{sub}})}{\lambda}\right)
+$$
+
+Here, $\tau$ is the one-pass internal power transmittance.
 
 **Two exact consequences:**
-- **The incoherent result is the average of the coherent ones.** It equals the coherent plate's result averaged over
-  the substrate phase. ifopt uses this for the **fringe envelope**: it scans that phase and reports the minimum and
-  maximum R and T that a single-frequency laser could see.
-- **The back face limits transmission.** No passive front coating can push T above T_back·τ. That is why the
-  bare-back combiner stops at T1 = 0.917.
+
+- **The incoherent result is the average of the coherent ones.** It equals the coherent plate's result averaged over the substrate phase. ifopt uses this for the **fringe envelope**: it scans that phase and reports the minimum and maximum R and T that a single-frequency laser could see.
+
+$$
+R_{\mathrm{incoherent}}=\left\langle R_{\mathrm{coherent}}\right\rangle_{\phi}
+\qquad
+T_{\mathrm{incoherent}}=\left\langle T_{\mathrm{coherent}}\right\rangle_{\phi}
+$$
+
+- **The back face limits transmission.** No passive front coating can push T above $T_{\mathrm{back}}\tau$. That is why the bare-back combiner stops at T1 = 0.917.
 
 | Mode | What it represents |
 |---|---|
@@ -312,25 +404,20 @@ T = T_a·T_b·τ / (1 − R′_a·R_b·τ²)
 
 ### Optimization
 
-- **Targets:** each row of the target table asks for a physical quantity (R, T or A) at a wavelength, angle and
-  polarization, on the front or back side.
+- **Targets:** each row of the target table asks for a physical quantity (R, T or A) at a wavelength, angle and polarization, on the front or back side.
 - **Merit:** a weighted sum of the deviations from those targets.
-- **Gradients:** JAX differentiates through the whole calculation, so the optimizer gets exact derivatives of R and T
-  with respect to every layer thickness.
+- **Gradients:** JAX differentiates through the whole calculation, so the optimizer gets exact derivatives of R and T with respect to every layer thickness.
 - **What changes:** only the thicknesses. The refractive indices are fixed by the material data.
 - **Starting point:** quarter-wave stacks, the textbook starting designs.
-- **Search:** Adam explores from many starting designs at once, then L-BFGS-B refines the best ones. Both use 64-bit
-  floats, which keeps the gradients accurate.
+- **Search:** Adam explores from many starting designs at once, then L-BFGS-B refines the best ones. Both use 64-bit floats, which keeps the gradients accurate.
 
 ### Not modelled
 
 - Scattering, roughness, interdiffusion, porosity or water uptake in films.
 - Birefringence.
-- Partial coherence: a substrate is either fully coherent or fully incoherent, with nothing in between that depends on
-  the source bandwidth.
+- Partial coherence: a substrate is either fully coherent or fully incoherent, with nothing in between that depends on the source bandwidth.
 - Beam divergence: each point has one angle, not a cone of angles.
-- Lateral beam offset: in the 45° combiner the two reflections leave the plate about 0.8 mm apart, but they are
-  summed as one beam.
+- Lateral beam offset: in the 45° combiner the two reflections leave the plate about 0.8 mm apart, but they are summed as one beam.
 - Temperature: the optical constants are taken at the temperature of the material data.
 
 ## Layout
