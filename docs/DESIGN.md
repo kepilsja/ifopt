@@ -9,8 +9,8 @@ Each decision below comes with its reason and the numbers measured to support it
   - Source 1 hits the upper-right face. This is the *front* face, which carries the coating.
   - Source 2 hits the lower-left face, the *back* face.
 - **Consequence:** source 2 crosses the layers in reverse order, so R and T are needed from both sides of every stack.
-  - With absorption, R_front ≠ R_back.
-  - T_front = T_back always holds (reciprocity), and the tests use this as a check.
+  - With absorption, $R_{\mathrm{front}}\neq R_{\mathrm{back}}$.
+  - $T_{\mathrm{front}}=T_{\mathrm{back}}$ always holds (reciprocity), and the tests use this as a check.
 - **Output ports:** left = {T@1, R@2}, up = {R@1, T@2}. The plate works as a dichroic beam combiner.
 - **Plane of incidence:** both beams lie in the drawing plane, so s means E perpendicular to the drawing.
 - **Automatic check:** `geometry.verify_against_drawio` re-derives this mapping from the XML (arrow colours,
@@ -20,24 +20,36 @@ Each decision below comes with its reason and the numbers measured to support it
 
 | Engine | Role | Reason |
 |---|---|---|
-| **S-matrix** (`engines/stable_engine.py`, complex128) | default for evaluation and optimization | The Redheffer star product uses only the decaying factor e^{iδ} (\|·\| ≤ 1), so it cannot overflow for any loss or thickness. It gives r, t, r′ and t′ from both sides in one pass, and it is differentiable. |
+| **S-matrix** (`engines/stable_engine.py`, complex128) | default for evaluation and optimization | The Redheffer star product uses only the decaying factor $e^{i\delta}$, whose modulus is at most 1, so it cannot overflow for any loss or thickness. It gives $r$, $t$, $r'$ and $t'$ from both sides in one pass, and it is differentiable. |
 | **tmmax** (pinned to commit `dc4b904`) | cross-check only | See the measured problems below. |
 | **Byrnes `tmm`** (float64) | independent reference | Used in the tests and the reports. |
 
 Why tmmax is only a cross-check (all measured):
 - **Single precision only.** It hard-codes complex64 and crashes when `jax_enable_x64` is on, so the adapter runs it
   inside `jax.enable_x64(False)`.
-- **It fails with absorbing layers.** Its T-matrix returns NaN once Σ Im δ ≈ 89 (2.9 µm of Ge at 532 nm). Its gradients
-  are wrong from Σ Im δ ≈ 46, and float32 limits gradient accuracy to about 1e-8/nm.
+- **It fails with absorbing layers.** Its T-matrix returns NaN once $\sum\mathrm{Im}(\delta)\approx 89$ (2.9 µm of Ge at
+  532 nm). Its gradients are wrong from $\sum\mathrm{Im}(\delta)\approx 46$, and float32 limits gradient accuracy to
+  about 1e-8/nm.
 - **Its incoherent path applies the wrong layer's absorption.** It gives T = 0.44 where the correct value is 0.0011.
 - **Other failures:** `jit(grad(tmm()))` fails, a bare interface crashes, and PyPI 1.1.4 multiplies the layer matrices in
   the wrong order.
-- **Switching to float64 would not fix the overflow.** A complex128 T-matrix still fails at Σ Im δ ≈ 760.
+- **Switching to float64 would not fix the overflow.** A complex128 T-matrix still fails at
+  $\sum\mathrm{Im}(\delta)\approx 760$.
 
 ## 3. Substrate model
 
-- **`incoherent`** (thick plate): R = R_a + T_a·T_a′·R_b·τ² / (1 − R_a′·R_b·τ²) and T = T_a·T_b·τ / (1 − R_a′·R_b·τ²).
-  - Here τ = exp(−4π·D·Im q/λ). τ only ever multiplies, so an opaque substrate tends smoothly to T → 0 and R → R_a.
+- **`incoherent`** (thick plate): light enters through face $a$ and leaves through face $b$; primes denote incidence
+  from inside the substrate.
+
+  $$
+  R=R_a+\frac{T_aT'_aR_b\tau^2}{1-R'_aR_b\tau^2}
+  \qquad
+  T=\frac{T_aT_b\tau}{1-R'_aR_b\tau^2}
+  \qquad
+  \tau=\exp\left(-\frac{4\pi D\,\mathrm{Im}(q_{\mathrm{sub}})}{\lambda}\right)
+  $$
+
+  - $\tau$ only ever multiplies, so an opaque substrate tends smoothly to $T\to 0$ and $R\to R_a$.
   - The formula is applied per polarization, and the polarizations are mixed afterwards. That mixing is exact for
     isotropic stacks.
 - **Fringe envelope:** in the plate modes, the coherent plate is scanned over the substrate phase. Its mean equals the
@@ -45,8 +57,9 @@ Why tmmax is only a cross-check (all measured):
 - **`coherent`:** treats the substrate as an etalon at its physical phase. It is meant for analysis, not optimization.
 - **`semi_infinite`** turns the substrate "off": the back surface is ignored and T is the power entering the glass.
   **`none`** is a free-standing stack.
-- **Back-side incidence:** kx is taken in the incidence medium (the substrate, in the stack modes).
-- **Back-face ceiling** (incoherent mode): T ≤ T_back·τ for **any** passive front coating. The report prints it.
+- **Back-side incidence:** $k_x$ is taken in the incidence medium (the substrate, in the stack modes).
+- **Back-face ceiling** (incoherent mode): $T\leq T_{\mathrm{back}}\,\tau$ for **any** passive front coating. The report
+  prints it.
   - Example: a bare fused-silica back face at 45° in s-polarization limits T to 0.917358.
 
 ## 4. Materials
@@ -72,14 +85,28 @@ Why tmmax is only a cross-check (all measured):
   returns R, T and A for both polarizations.
 - **Beams** are named operating conditions. Rows on the same beam share their condition, and reports and
   `report.sums` (e.g. port totals, `T@1 + R@2`) refer to beams.
-- **Deviation** d, divided by the tolerance:
-  - eq: v − value;
-  - min: max(value − v, 0);
-  - max: max(v − value, 0).
-- **Merit forms:**
-  - `power`: Σ w|d|^p / Σ w, reported as MF = (·)^{1/p} (the OptiLayer convention);
-  - `minimax`: τ·logΣ w·e^{d²/τ} / Σ w;
-  - `log`: −Σ w·log(1 − |d|) / Σ w.
+- **Deviation** $d$ of an achieved value $v$ from the target value $v_0$, divided by the tolerance $\varepsilon$:
+  - eq: $d=(v-v_0)/\varepsilon$;
+  - min: $d=\max(v_0-v,\,0)/\varepsilon$;
+  - max: $d=\max(v-v_0,\,0)/\varepsilon$.
+- **Merit forms**, with the weight $w_i$ of each expanded point:
+  - `power` (the OptiLayer convention), reported as $\mathrm{MF}=M^{1/p}$:
+
+    $$
+    M=\frac{\sum_i w_i\,|d_i|^p}{\sum_i w_i}
+    $$
+
+  - `minimax`, a smooth maximum with temperature $\tau$:
+
+    $$
+    M=\tau\log\left(\frac{\sum_i w_i\,e^{d_i^2/\tau}}{\sum_i w_i}\right)
+    $$
+
+  - `log`:
+
+    $$
+    M=-\frac{\sum_i w_i\log\left(1-|d_i|\right)}{\sum_i w_i}
+    $$
 - **One-sided targets stop improving once met,** because their gradient becomes zero, so they build no margin. To
   get margin, set the value above the spec or use `eq`.
   - Example: in the bands design, the pass band still meets its spec in only 67% of samples with 1% thickness errors.
@@ -89,7 +116,7 @@ Why tmmax is only a cross-check (all measured):
 - **Design vector:** the front thicknesses, followed by the back thicknesses when `[back] optimize = true`. Each layer
   has box bounds per material.
 - **Starting designs:**
-  - the front starts as a quarter-wave stack at the highest-weight "reflect" row. Its layers are half-wave at λ/2, so a
+  - the front starts as a quarter-wave stack at the highest-weight "reflect" row. Its layers are half-wave at $\lambda/2$, so a
     532/1064 nm combiner is nearly transparent at 532 nm from the start;
   - the back starts as quarter-wave layers at the "transmit" row (an AR starting point);
   - 25% of the starts are jittered copies of the seed, and the rest are uniform random.
@@ -102,8 +129,8 @@ Why tmmax is only a cross-check (all measured):
 ## 7. Validation
 
 - **Analytic checks:** Fresnel at 45° (s and p), zero p-reflectance at Brewster's angle, closed-form quarter-wave stack.
-- **Invariants:** R + T = 1 for lossless stacks, reciprocity, R_front ≠ R_back with loss, s = p at 0° in every
-  substrate mode.
+- **Invariants:** $R+T=1$ for lossless stacks, reciprocity, $R_{\mathrm{front}}\neq R_{\mathrm{back}}$ with loss, s = p
+  at 0° in every substrate mode.
 - **Cross-engine:**
   - stable vs Byrnes: ≤ 1e-10 on random stacks including metal-like layers, in both directions, for the full plate and
     the stack modes;

@@ -218,7 +218,7 @@ $$
 The square root has two solutions. The engine takes the one with
 
 $$
-\operatorname{Im}(q_j)\geq 0
+\mathrm{Im}(q_j)\geq 0
 $$
 
 so the forward wave decays as it travels. That is the physical choice for absorbing layers and for evanescent waves beyond total internal reflection (`kz` in [stable_engine.py](src/ifopt/engines/stable_engine.py)).
@@ -251,22 +251,21 @@ $$
 \delta=\frac{2\pi qd}{\lambda}
 $$
 
-- $\operatorname{Re}(\delta)$ is the phase. It sets the interference: a quarter-wave layer ($\delta=\pi/2$) makes reflections from its two faces add in phase, and a half-wave layer ($\delta=\pi$) is optically absent at its design wavelength.
-- $\operatorname{Im}(\delta)$ is the absorption:
+- $\mathrm{Re}(\delta)$ is the phase. It sets the interference: a quarter-wave layer ($\delta=\pi/2$) makes reflections from its two faces add in phase, and a half-wave layer ($\delta=\pi$) is optically absent at its design wavelength.
+- $\mathrm{Im}(\delta)$ is the absorption:
 
-$$
-|e^{i\delta}|=e^{-\operatorname{Im}(\delta)}\leq 1
-$$
+  $$
+  |e^{i\delta}|=e^{-\mathrm{Im}(\delta)}\leq 1
+  $$
 
 All filter behaviour follows from these two building blocks:
 
-- **Mirrors:** quarter-wave $(HL)^p$ stacks are mirrors with a stop band of half-width
+- **Mirrors:** quarter-wave $(HL)^p$ stacks are mirrors. In relative frequency, their stop band has a half-width of
 
-$$
-\frac{2}{\pi}\arcsin\left(\frac{n_H-n_L}{n_H+n_L}\right)
-$$
+  $$
+  \frac{2}{\pi}\arcsin\left(\frac{n_H-n_L}{n_H+n_L}\right)
+  $$
 
-in relative frequency.
 - **Bandpass:** a half-wave spacer between two mirrors is a Fabry–Pérot resonator. Coupling several of them gives a flat-topped bandpass.
 - **Edge filters:** $(L/2\ H\ L/2)^q$ and $(H/2\ L\ H/2)^q$ stacks are edge filters, used for blocking outside a passband.
 
@@ -290,7 +289,7 @@ $$
 
 is the geometric series of the light bouncing back and forth between $A$ and $B$. Each term is a real sequence of bounces, and its size never exceeds 1.
 
-The more common transfer-matrix method (used by tmmax and Byrnes' `tmm`) also has to carry the growing exponential $e^{+\operatorname{Im}(\delta)}$. In thick absorbing stacks that overflows: float32 fails at a total $\operatorname{Im}(\delta)$ of about 89, and float64 at about 709. The S-matrix method only multiplies by the decaying factor, so it handles any thickness and any amount of loss. That is why it is the default engine; the evidence is in [results/stability/stability_report.md](results/stability/stability_report.md).
+The more common transfer-matrix method (used by tmmax and Byrnes' `tmm`) also has to carry the growing exponential $e^{+\mathrm{Im}(\delta)}$. In thick absorbing stacks that overflows: float32 fails once the sum of $\mathrm{Im}(\delta)$ over the layers reaches about 89, and float64 at about 709. The S-matrix method only multiplies by the decaying factor, so it handles any thickness and any amount of loss. That is why it is the default engine; the evidence is in [results/stability/stability_report.md](results/stability/stability_report.md).
 
 ### From amplitudes to power
 
@@ -306,21 +305,21 @@ Transmittance for s-polarization:
 
 $$
 T_s=|t|^2
-\frac{\operatorname{Re}(q_{\mathrm{out}})}
-     {\operatorname{Re}(q_{\mathrm{in}})}
+\frac{\mathrm{Re}(q_{\mathrm{out}})}
+     {\mathrm{Re}(q_{\mathrm{in}})}
 $$
 
-Transmittance for p-polarization:
+Transmittance for p-polarization, where $^{*}$ is the complex conjugate:
 
 $$
 T_p=|t|^2
 \frac{
-\operatorname{Re}\left(
-N_{\mathrm{out}}\operatorname{conj}\left(q_{\mathrm{out}}/N_{\mathrm{out}}\right)
+\mathrm{Re}\left(
+N_{\mathrm{out}}\left(q_{\mathrm{out}}/N_{\mathrm{out}}\right)^{*}
 \right)
 }{
-\operatorname{Re}\left(
-N_{\mathrm{in}}\operatorname{conj}\left(q_{\mathrm{in}}/N_{\mathrm{in}}\right)
+\mathrm{Re}\left(
+N_{\mathrm{in}}\left(q_{\mathrm{in}}/N_{\mathrm{in}}\right)^{*}
 \right)
 }
 $$
@@ -378,20 +377,20 @@ T=\frac{T_aT_b\tau}{1-R'_aR_b\tau^2}
 $$
 
 $$
-\tau=\exp\left(-\frac{4\pi D\operatorname{Im}(q_{\mathrm{sub}})}{\lambda}\right)
+\tau=\exp\left(-\frac{4\pi D\,\mathrm{Im}(q_{\mathrm{sub}})}{\lambda}\right)
 $$
 
 Here, $\tau$ is the one-pass internal power transmittance.
 
 **Two exact consequences:**
 
-- **The incoherent result is the average of the coherent ones.** It equals the coherent plate's result averaged over the substrate phase. ifopt uses this for the **fringe envelope**: it scans that phase and reports the minimum and maximum R and T that a single-frequency laser could see.
+- **The incoherent result is the average of the coherent ones.** It equals the coherent plate's result averaged over the substrate phase $\phi$. ifopt uses this for the **fringe envelope**: it scans that phase and reports the minimum and maximum R and T that a single-frequency laser could see.
 
-$$
-R_{\mathrm{incoherent}}=\left\langle R_{\mathrm{coherent}}\right\rangle_{\phi}
-\qquad
-T_{\mathrm{incoherent}}=\left\langle T_{\mathrm{coherent}}\right\rangle_{\phi}
-$$
+  $$
+  R_{\mathrm{incoherent}}=\left\langle R_{\mathrm{coherent}}\right\rangle_{\phi}
+  \qquad
+  T_{\mathrm{incoherent}}=\left\langle T_{\mathrm{coherent}}\right\rangle_{\phi}
+  $$
 
 - **The back face limits transmission.** No passive front coating can push T above $T_{\mathrm{back}}\tau$. That is why the bare-back combiner stops at T1 = 0.917.
 
