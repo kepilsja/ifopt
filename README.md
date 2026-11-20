@@ -309,17 +309,17 @@ T_s=|t|^2
      {\mathrm{Re}(q_{\mathrm{in}})}
 $$
 
-Transmittance for p-polarization, where $^{*}$ is the complex conjugate:
+Transmittance for p-polarization, where $z^{\ast}$ is the complex conjugate of $z$:
 
 $$
 T_p=|t|^2
 \frac{
 \mathrm{Re}\left(
-N_{\mathrm{out}}\left(q_{\mathrm{out}}/N_{\mathrm{out}}\right)^{*}
+N_{\mathrm{out}}\left(q_{\mathrm{out}}/N_{\mathrm{out}}\right)^{\ast}
 \right)
 }{
 \mathrm{Re}\left(
-N_{\mathrm{in}}\left(q_{\mathrm{in}}/N_{\mathrm{in}}\right)^{*}
+N_{\mathrm{in}}\left(q_{\mathrm{in}}/N_{\mathrm{in}}\right)^{\ast}
 \right)
 }
 $$
